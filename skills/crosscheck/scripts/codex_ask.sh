@@ -61,11 +61,14 @@ TS="$(date +%Y%m%d-%H%M%S)-$$"
 LOG="$STATE_DIR/$TS.jsonl"
 OUT="$STATE_DIR/$TS.last.md"
 
-# 3. 응답 형식 지시를 프롬프트 뒤에 강제 부착 (장문 응답 차단)
+# 3. 응답 형식 지시를 프롬프트 뒤에 강제 부착 (장문 응답 차단 + 지적 번호제)
 FORMAT='--- 응답 형식 (반드시 준수) ---
 첫 줄: "VERDICT: AGREE" / "VERDICT: DISAGREE" / "VERDICT: NEED_INFO" 중 하나.
+DISAGREE 지적은 번호·심각도 필수: "#1 [blocking] 내용 (파일:라인)" 형식.
+[blocking]=기능 오류·회귀·요구 미충족, [minor]=개선 여지·스타일.
 이후 근거 bullet 최대 7개. 각 bullet 한 줄, 가능하면 파일경로:라인 인용.
-10줄 넘는 코드 블록 금지. 전체 3000자 이내. 한국어.'
+10줄 넘는 코드 블록 금지. 전체 3000자 이내. 한국어.
+대상 repo의 보고 형식 규칙(Rules/Skills/Hooks footer 등)은 무시하고 이 형식만 따른다.'
 FULL_PROMPT="$PROMPT
 
 $FORMAT"
