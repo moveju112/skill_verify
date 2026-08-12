@@ -3,6 +3,7 @@
 # 최종 메시지만 상한(기본 6000자)으로 잘라 stdout에 낸다 (토큰 누수 방지)
 #
 # 사용법:
+#   codex_ask.sh check                                  # 프리플라이트 (로그인 상태, 토큰 소모 없음)
 #   codex_ask.sh new    [-C 작업디렉터리] "프롬프트"
 #   codex_ask.sh resume <세션ID|last> [-C 작업디렉터리] "프롬프트"
 #   프롬프트가 '-' 이면 stdin에서 읽는다 (긴 프롬프트용)
@@ -14,10 +15,23 @@
 #   CROSSCHECK_STATE_DIR  로그 보관 위치 (기본 ~/.cache/codex-crosscheck)
 set -uo pipefail
 
-usage() { echo "usage: codex_ask.sh new|resume [<session|last>] [-C dir] \"prompt\"" >&2; exit 2; }
+usage() { echo "usage: codex_ask.sh check | new|resume [<session|last>] [-C dir] \"prompt\"" >&2; exit 2; }
 
 # 1. 인자 파싱
 MODE="${1:-}"; shift || true
+
+# check 모드 — 호출 전 프리플라이트 (로그인 여부만, 토큰 소모 없음)
+if [ "$MODE" = "check" ]; then
+    if ! command -v codex >/dev/null 2>&1; then
+        echo "CODEX_NOT_INSTALLED"; exit 1
+    fi
+    STATUS="$(codex login status 2>&1)"
+    if [ $? -eq 0 ]; then
+        echo "CODEX_OK: $STATUS"; exit 0
+    else
+        echo "CODEX_AUTH_ERROR: $STATUS"; exit 1
+    fi
+fi
 SESSION=""
 if [ "$MODE" = "resume" ]; then
     SESSION="${1:-}"; shift || true
@@ -74,9 +88,16 @@ else
 fi
 RC=$?
 
-# 5. 실패 시 로그 꼬리만 잘라 보고
+# 5. 실패 시 원인 분류 후 로그 꼬리만 잘라 보고
+#    CODEX_AUTH_ERROR = 로그인 풀림 / CODEX_QUOTA_ERROR = 사용량 한도 / CODEX_ERROR = 기타
 if [ $RC -ne 0 ]; then
-    echo "CODEX_ERROR: exit $RC (log: $LOG)"
+    if grep -qiE 'not logged in|unauthorized|401|login required|token .*(expired|invalid)' "$LOG" 2>/dev/null; then
+        echo "CODEX_AUTH_ERROR: exit $RC (log: $LOG)"
+    elif grep -qiE 'usage limit|rate limit|quota|429|too many requests' "$LOG" 2>/dev/null; then
+        echo "CODEX_QUOTA_ERROR: exit $RC (log: $LOG)"
+    else
+        echo "CODEX_ERROR: exit $RC (log: $LOG)"
+    fi
     tail -c 1500 "$LOG" 2>/dev/null
     exit $RC
 fi
