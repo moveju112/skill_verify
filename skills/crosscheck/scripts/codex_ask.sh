@@ -12,6 +12,7 @@
 #   CROSSCHECK_MAX_CHARS  stdout 상한 (기본 6000)
 #   CROSSCHECK_SANDBOX    codex 샌드박스 (기본 read-only)
 #   CODEX_MODEL           모델 지정 (기본 codex 설정값)
+#   CODEX_EFFORT          reasoning effort 고정 (minimal|low|medium|high, 기본 codex 설정값)
 #   CROSSCHECK_STATE_DIR  로그 보관 위치 (기본 ~/.cache/codex-crosscheck)
 set -uo pipefail
 
@@ -77,6 +78,9 @@ if [ "$MODE" = "new" ]; then
 fi
 if [ -n "${CODEX_MODEL:-}" ]; then
     ARGS+=(-m "$CODEX_MODEL")
+fi
+if [ -n "${CODEX_EFFORT:-}" ]; then
+    ARGS+=(-c "model_reasoning_effort=\"$CODEX_EFFORT\"")
 fi
 
 if [ "$MODE" = "new" ]; then

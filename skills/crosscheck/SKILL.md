@@ -52,7 +52,8 @@ echo "..." | codex_ask.sh new -C /path/to/repo -
 
 - stdout 첫 줄 `SESSION: <id>` — 다음 resume에 쓴다.
 - 응답 첫 줄은 항상 `VERDICT: AGREE|DISAGREE|NEED_INFO` (스크립트가 형식을 강제 부착).
-- 환경변수: `CROSSCHECK_MAX_CHARS`(기본 6000), `CODEX_MODEL`, `CROSSCHECK_SANDBOX`(기본 read-only).
+- 환경변수: `CROSSCHECK_MAX_CHARS`(기본 6000), `CODEX_MODEL`, `CODEX_EFFORT`(minimal|low|medium|high), `CROSSCHECK_SANDBOX`(기본 read-only).
+- effort 권장: 분석·계획·완료 체크는 codex 기본값(high)을 따르고, 단순 확인성 질문만 `CODEX_EFFORT=medium`으로 낮춘다.
 
 ## Phase 0 — 게이트
 
