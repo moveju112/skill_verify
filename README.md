@@ -1,4 +1,4 @@
-# codex-crosscheck
+# llm-crosscheck
 
 Claude↔Codex 핑퐁 교차검증 스킬 플러그인.
 
@@ -9,13 +9,13 @@ Claude↔Codex 핑퐁 교차검증 스킬 플러그인.
 ## 설치
 
 ```bash
-claude plugin marketplace add ~/project/skills/codex-crosscheck
-claude plugin install codex-crosscheck@codex-crosscheck
+claude plugin marketplace add ~/project/skills/llm-crosscheck
+claude plugin install llm-crosscheck@llm-crosscheck
 ```
 
 ## 사용
 
-세션에서 "크로스체크", "codex 교차검증", `/codex-crosscheck:crosscheck` 등으로 트리거.
+세션에서 "크로스체크", "codex 교차검증", `/llm-crosscheck:crosscheck` 등으로 트리거.
 
 ## 요구사항
 

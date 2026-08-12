@@ -1,5 +1,5 @@
 {
-  "name": "codex-crosscheck",
+  "name": "llm-crosscheck",
   "displayName": "Codex 크로스체크",
   "description": "Claude↔Codex 핑퐁 교차검증 — Claude가 설계·코딩, Codex가 검증, 합의 후 구현",
   "version": "1.3.0",

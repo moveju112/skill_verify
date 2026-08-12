@@ -1,13 +1,13 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "codex-crosscheck",
+  "name": "llm-crosscheck",
   "description": "Claude↔Codex 핑퐁 교차검증 스킬 플러그인",
   "owner": {
     "name": "moveju112"
   },
   "plugins": [
     {
-      "name": "codex-crosscheck",
+      "name": "llm-crosscheck",
       "description": "Claude가 코딩, Codex가 검증. 합의까지 핑퐁 후 구현. 토큰 누수 차단 래퍼 내장",
       "source": "./"
     }
