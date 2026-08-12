@@ -1,8 +1,8 @@
 {
-  "name": "llm-crosscheck",
-  "displayName": "Codex 크로스체크",
-  "description": "Claude↔Codex 핑퐁 교차검증 — Claude가 설계·코딩, Codex가 검증, 합의 후 구현",
-  "version": "1.3.0",
+  "name": "verify",
+  "displayName": "Verify — 교차검증·단위테스트",
+  "description": "코드 검증 번들 — crosscheck(Claude↔Codex 핑퐁 교차검증) + unit-test(수정 후 승인형 다각도 단위 테스트)",
+  "version": "2.0.0",
   "author": {
     "name": "moveju112",
     "email": "move@wemade-connect.com"
@@ -12,7 +12,8 @@
     "codex",
     "cross-check",
     "review",
-    "ping-pong"
+    "ping-pong",
+    "unit-test"
   ],
   "skills": "./skills/"
 }
