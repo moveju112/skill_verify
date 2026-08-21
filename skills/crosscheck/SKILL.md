@@ -27,14 +27,22 @@ Claude와 Codex가 **각자 독립 분석**하고, 결과를 교환·취합한�
    - 스크립트가 최종 메시지만 최대 6,000자로 잘라 반환한다. 원 로그는 컨텍스트에 안 들어온다.
 2. codex 프롬프트에 **파일 내용·diff 전문을 붙여넣지 않는다.**
    - 경로와 라인 범위만 준다. codex는 read-only 샌드박스로 repo를 직접 읽는다.
-   - 구현 리뷰는 "`git diff HEAD`를 직접 실행해 검토하라"고 지시한다.
+   - 구현 리뷰는 "`git diff <기준SHA>`와 `git status --short`를 직접 실행해 검토하라"고 지시한다.
 3. codex에 보내는 요약(분석·계획)은 **15줄 이내**. 문서 전문을 보내지 않는다.
 4. 원 로그(`~/.cache/codex-crosscheck/*.jsonl`)를 Read로 통째로 읽지 않는다.
    - 디버깅 필요 시 grep으로 해당 줄만 뽑는다.
-5. 라운드 캡: 분석 대조 2, 계획 3, 완료 체크 2 (정식 리뷰 기준).
+   - 로그에는 codex가 읽은 파일 내용이 그대로 남는다. 스크립트가 `umask 077`로 소유자 전용 생성하고
+     `CROSSCHECK_LOG_DAYS`(기본 14일) 초과분을 자동 삭제한다.
+5. **호출측 Bash 타임아웃을 반드시 지정한다 — `timeout: 930000`(930초).**
+   - 스크립트 내부 상한이 900초(`CROSSCHECK_TIMEOUT`)다. 호출측이 더 짧으면 codex가 외부에서 죽어
+     최종 응답 파일이 안 생기고 그 회차 작업이 전부 버려진다.
+   - 실측: 성공 호출 지속시간 중앙값 132초, 최대 468초. Bash 기본 120초로는 절반이 죽는다.
+6. 라운드 캡: 분석 대조 2, 계획 3, 완료 체크 2 (정식 리뷰 기준).
    - 캡 도달 시 Claude가 재량으로 결정하고, 이견을 최종 보고에 기록한다.
    - 예외: 직전 라운드 지적을 수용·수정한 직후에는 **확인 전용 패스 1회**를 캡 밖으로 허용 (Phase D 참조).
      마지막 수정분이 검증 안 된 채 종결되는 것을 막기 위한 저비용 패스다.
+7. **세션 교체 기준** — `resume`은 스레드 전체를 매번 재전송한다(확인성 1회에 입력 4,489,268토큰 실측).
+   같은 세션에서 3라운드를 넘겼거나 주제가 바뀌면 `new` 세션으로 갈아탄다.
 
 ## 스크립트 사용법
 
@@ -44,7 +52,7 @@ Claude와 Codex가 **각자 독립 분석**하고, 결과를 교환·취합한�
 # 새 세션 시작 (작업 repo를 -C로 지정)
 codex_ask.sh new -C /path/to/repo "질문"
 
-# 세션 이어서 핑퐁 (SESSION: 줄에 찍힌 ID 사용, 없으면 last)
+# 세션 이어서 핑퐁 (SESSION: 줄에 찍힌 ID 사용 — UNKNOWN이면 resume 불가)
 # resume은 -C 불필요 — cwd·샌드박스가 원 세션을 따라간다
 codex_ask.sh resume <세션ID> "반론/후속 질문"
 
@@ -52,19 +60,26 @@ codex_ask.sh resume <세션ID> "반론/후속 질문"
 echo "..." | codex_ask.sh new -C /path/to/repo -
 ```
 
+- 호출 예: `codex_ask.sh new -C <repo> "질문"` — **Bash 도구 `timeout`은 930000으로 준다.**
 - stdout 첫 줄 `SESSION: <id>` — 다음 resume에 쓴다.
+  `SESSION: UNKNOWN`이면 resume 금지(스크립트가 거부한다). 이어갈 맥락은 `new` 세션에 요약해 다시 준다.
+- `CODEX_FORMAT_WARNING`이 붙어 오면 응답이 형식을 어긴 것이다. verdict를 추정하지 말고 같은 질문을 재요청한다.
 - 응답 첫 줄은 항상 `VERDICT: AGREE|DISAGREE|NEED_INFO` (스크립트가 형식을 강제 부착).
 - DISAGREE 지적은 `#N [blocking|minor]` 번호로 온다.
   resume에서 "#1 반박: <근거>, #2 수용·수정함"처럼 **번호로만 참조**한다 — 지적 내용 재서술 금지 (토큰 절약 + 대조 정확).
   blocking은 즉시 수정 검토, minor는 기록 후 사용자 판단에 맡겨도 된다.
-- 환경변수: `CROSSCHECK_MAX_CHARS`(기본 6000), `CODEX_MODEL`, `CODEX_EFFORT`(minimal|low|medium|high), `CROSSCHECK_SANDBOX`(기본 read-only).
+- 환경변수: `CROSSCHECK_MAX_CHARS`(문자 수, 기본 6000), `CROSSCHECK_TIMEOUT`(초, 기본 900),
+  `CROSSCHECK_LOG_DAYS`(기본 14), `CODEX_MODEL`, `CODEX_EFFORT`(minimal|low|medium|high), `CROSSCHECK_SANDBOX`(기본 read-only).
+- 실패 코드: `CODEX_TIMEOUT`(상한 초과 — 질문 범위를 좁혀 재시도) / `CODEX_AUTH_ERROR` / `CODEX_QUOTA_ERROR` / `CODEX_ERROR`.
 - effort 권장: 분석·계획·완료 체크는 codex 기본값(high)을 따르고, 단순 확인성 질문만 `CODEX_EFFORT=medium`으로 낮춘다.
 
 ## Phase 0 — 게이트
 
 1. 사소한 작업(오타 수정, 1파일 소규모 변경)이면 크로스체크 생략을 제안하고 바로 구현한다.
    크로스체크는 분석·설계 판단이 갈릴 수 있는 작업에만 쓴다.
-2. **프리플라이트**: 첫 codex 호출 전 `codex_ask.sh check` 실행 (토큰 소모 없음).
+2. **기준 커밋 기록**: 작업 시작 전 `git rev-parse HEAD`와 `git status --short`를 남긴다.
+   Phase D 검증 범위의 기준점이다 — 중간 커밋이 끼거나 신규 파일이 untracked로 남아도 diff가 새지 않는다.
+3. **프리플라이트**: 첫 codex 호출 전 `codex_ask.sh check` 실행 (토큰 소모 없음).
    - `CODEX_OK` — 진행.
    - `CODEX_AUTH_ERROR` / `CODEX_NOT_INSTALLED` — 크로스체크 불가. 폴백(아래)으로.
 
@@ -83,6 +98,8 @@ echo "..." | codex_ask.sh new -C /path/to/repo -
 핵심: **둘이 같은 질문을 각자 조사한다. 서로의 결과를 보기 전까지는 blind.**
 
 1. Claude가 스스로 분석한다 (코드 조사·grep 등). 결론을 10줄 이내로 메모.
+   - blind 무결성: **과거 결론을 그대로 가져오지 않는다.** 메모리·이전 세션 요약은 가설로만 쓰고
+     근거는 이번 회차에 코드에서 다시 확보한다. 재사용한 과거 결론이 있으면 최종 보고에 표시한다.
 2. **같은 질문**을 codex에 `new` 세션으로 보낸다.
    - ★ Claude의 분석 결과를 프롬프트에 넣지 않는다. 앵커링되면 교차검증이 무의미하다.
    - 프롬프트 틀: `"<질문>. 관련 코드를 직접 조사해 근거와 함께 답하라. 시작점: <경로 힌트>"`
@@ -94,6 +111,18 @@ echo "..." | codex_ask.sh new -C /path/to/repo -
    ```
 5. 최대 2라운드 대조 후 통합 결론 확정. 미해소 항목은 이견으로 기록.
 6. `analyze` 모드면 통합 결론 보고 후 종료.
+
+## 지적 수용 게이트 (Phase A·B·D 공통, 위반 금지)
+
+codex 지적은 **검증 전에는 가설이다.** 실측 DISAGREE 비율 15/23 — 그중 룰 오독·범위 착오도 있었다.
+수용해 코드를 바꾸기 전 순서대로 확인한다:
+
+1. 인용된 `파일:라인`을 직접 읽어 주장과 일치하는지 확인.
+2. 그 코드의 호출 흐름을 확인 — 실제로 그 경로가 도달 가능한지.
+3. 가능하면 최소 재현(테스트·로그 한 줄)으로 결함을 눈으로 확인.
+
+- 1~3을 통과한 지적만 수정한다. 통과 못 한 지적은 **수정하지 않고 이견으로 기록**하고 근거와 함께 반박한다.
+- 지적이 프로젝트 규칙 위반을 주장하면 규칙 원문을 확인한다 — codex는 대상 repo 규칙을 오독할 수 있다.
 
 ## Phase B — 계획 합의 (최대 3라운드)
 
@@ -122,7 +151,8 @@ echo "..." | codex_ask.sh new -C /path/to/repo -
    - **변경 대상 경로를 명시해 diff 범위를 고정한다** — 작업 트리의 무관한 변경이 검증을 흐리는 것 방지.
    - 요구사항은 **사용자 원 요청·리뷰 원문을 우선 인용**한다. 검증받는 쪽(Claude)이 요약을 쓰면 유리하게 프레이밍될 수 있다.
    ```
-   codex_ask.sh new -C <repo> "git diff HEAD -- <대상 경로들> 을 직접 실행해 이 변경을 검증하라.
+   codex_ask.sh new -C <repo> "git diff <Phase 0 기준SHA> -- <대상 경로들> 과 git status --short 를
+   직접 실행해 이 변경을 검증하라. 신규 파일은 untracked일 수 있으니 status로 확인해 함께 검토하라.
    대상 외 파일에 diff가 있으면 범위 밖으로 표시만 하라.
    요구사항: <사용자 원 요청 원문 인용, 3줄 이내>.
    ① 요구사항 충족 여부 항목별 판정 ② 버그·누락 케이스·회귀 위험 지적

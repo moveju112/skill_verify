@@ -2,7 +2,7 @@
   "name": "verify",
   "displayName": "Verify — 교차검증·단위테스트",
   "description": "코드 검증 번들 — crosscheck(Claude↔Codex 핑퐁 교차검증) + unit-test(수정 후 승인형 다각도 단위 테스트)",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "author": {
     "name": "moveju112",
     "email": "move@wemade-connect.com"

@@ -9,12 +9,19 @@
 #   프롬프트가 '-' 이면 stdin에서 읽는다 (긴 프롬프트용)
 #
 # 환경변수:
-#   CROSSCHECK_MAX_CHARS  stdout 상한 (기본 6000)
+#   CROSSCHECK_MAX_CHARS  stdout 상한 (문자 수, 기본 6000)
+#   CROSSCHECK_TIMEOUT    codex 1회 호출 상한 초 (기본 900)
 #   CROSSCHECK_SANDBOX    codex 샌드박스 (기본 read-only)
+#   CROSSCHECK_LOG_DAYS   로그 보존 일수 (기본 14, 초과분 자동 삭제)
 #   CODEX_MODEL           모델 지정 (기본 codex 설정값)
 #   CODEX_EFFORT          reasoning effort 고정 (minimal|low|medium|high, 기본 codex 설정값)
 #   CROSSCHECK_STATE_DIR  로그 보관 위치 (기본 ~/.cache/codex-crosscheck)
+#
+# 종료 상태 코드 문자열:
+#   CODEX_OK / CODEX_NOT_INSTALLED / CODEX_AUTH_ERROR / CODEX_QUOTA_ERROR
+#   CODEX_TIMEOUT / CODEX_ERROR / CODEX_FORMAT_WARNING
 set -uo pipefail
+umask 077   # 로그에 repo 파일 내용이 남으므로 소유자 전용 권한으로 생성
 
 usage() { echo "usage: codex_ask.sh check | new|resume [<session|last>] [-C dir] \"prompt\"" >&2; exit 2; }
 
@@ -26,8 +33,7 @@ if [ "$MODE" = "check" ]; then
     if ! command -v codex >/dev/null 2>&1; then
         echo "CODEX_NOT_INSTALLED"; exit 1
     fi
-    STATUS="$(codex login status 2>&1)"
-    if [ $? -eq 0 ]; then
+    if STATUS="$(codex login status 2>&1)"; then
         echo "CODEX_OK: $STATUS"; exit 0
     else
         echo "CODEX_AUTH_ERROR: $STATUS"; exit 1
@@ -37,6 +43,10 @@ SESSION=""
 if [ "$MODE" = "resume" ]; then
     SESSION="${1:-}"; shift || true
     [ -n "$SESSION" ] || usage
+    # 세션 ID 미확인 상태로 이어가기 금지 — 병렬 실행 중 남의 세션을 잇는 사고 방지
+    if [ "$SESSION" = "UNKNOWN" ]; then
+        echo "CODEX_ERROR: 세션 ID 미확인. resume 불가 — new 세션으로 다시 시작하라."; exit 3
+    fi
 elif [ "$MODE" != "new" ]; then
     usage
 fi
@@ -52,11 +62,16 @@ if [ "$PROMPT" = "-" ]; then
     PROMPT="$(cat)"
 fi
 
-# 2. 상태 디렉터리·로그 경로 준비
+# 2. 상태 디렉터리·로그 경로 준비 + 보존기간 초과 로그 정리
 MAX_CHARS="${CROSSCHECK_MAX_CHARS:-6000}"
 SANDBOX="${CROSSCHECK_SANDBOX:-read-only}"
+TIMEOUT_SEC="${CROSSCHECK_TIMEOUT:-900}"
+LOG_DAYS="${CROSSCHECK_LOG_DAYS:-14}"
 STATE_DIR="${CROSSCHECK_STATE_DIR:-$HOME/.cache/codex-crosscheck}"
 mkdir -p "$STATE_DIR"
+chmod 700 "$STATE_DIR" 2>/dev/null
+find "$STATE_DIR" -maxdepth 1 -type f \( -name '*.jsonl' -o -name '*.last.md' \) \
+    -mtime +"$LOG_DAYS" -delete 2>/dev/null
 TS="$(date +%Y%m%d-%H%M%S)-$$"
 LOG="$STATE_DIR/$TS.jsonl"
 OUT="$STATE_DIR/$TS.last.md"
@@ -86,42 +101,85 @@ if [ -n "${CODEX_EFFORT:-}" ]; then
     ARGS+=(-c "model_reasoning_effort=\"$CODEX_EFFORT\"")
 fi
 
+# 호출측 타임아웃과 경쟁하지 않도록 스크립트가 먼저 자른다 (exit 124)
 if [ "$MODE" = "new" ]; then
-    codex exec "${ARGS[@]}" - <<<"$FULL_PROMPT" >"$LOG" 2>&1
+    timeout "$TIMEOUT_SEC" codex exec "${ARGS[@]}" - <<<"$FULL_PROMPT" >"$LOG" 2>&1
 elif [ "$SESSION" = "last" ]; then
-    codex exec resume --last "${ARGS[@]}" - <<<"$FULL_PROMPT" >"$LOG" 2>&1
+    timeout "$TIMEOUT_SEC" codex exec resume --last "${ARGS[@]}" - <<<"$FULL_PROMPT" >"$LOG" 2>&1
 else
-    codex exec resume "$SESSION" "${ARGS[@]}" - <<<"$FULL_PROMPT" >"$LOG" 2>&1
+    timeout "$TIMEOUT_SEC" codex exec resume "$SESSION" "${ARGS[@]}" - <<<"$FULL_PROMPT" >"$LOG" 2>&1
 fi
 RC=$?
 
-# 5. 실패 시 원인 분류 후 로그 꼬리만 잘라 보고
-#    CODEX_AUTH_ERROR = 로그인 풀림 / CODEX_QUOTA_ERROR = 사용량 한도 / CODEX_ERROR = 기타
+# 5. 실패 시 원인 분류
+#    ★ 판정 대상은 구조화 error 레코드와 stderr(JSON 아닌 줄)뿐이다.
+#      로그 본문 JSONL에는 codex가 읽은 파일 내용이 그대로 들어가므로
+#      전체 grep을 하면 소스의 라인번호 401/429가 인증·한도 오류로 오분류된다.
 if [ $RC -ne 0 ]; then
-    if grep -qiE 'not logged in|unauthorized|401|login required|token .*(expired|invalid)' "$LOG" 2>/dev/null; then
+    ERRTXT="$( { grep -aE '"type":"(error|turn\.failed)"' "$LOG"; grep -av '^{' "$LOG" | tail -20; } 2>/dev/null )"
+    if [ $RC -eq 124 ]; then
+        echo "CODEX_TIMEOUT: ${TIMEOUT_SEC}s 초과 (log: $LOG)"
+    elif echo "$ERRTXT" | grep -qiE 'not logged in|unauthorized|401|login required|token .*(expired|invalid)'; then
         echo "CODEX_AUTH_ERROR: exit $RC (log: $LOG)"
-    elif grep -qiE 'usage limit|rate limit|quota|429|too many requests' "$LOG" 2>/dev/null; then
+    elif echo "$ERRTXT" | grep -qiE 'usage limit|rate limit|quota|429|too many requests'; then
         echo "CODEX_QUOTA_ERROR: exit $RC (log: $LOG)"
     else
         echo "CODEX_ERROR: exit $RC (log: $LOG)"
     fi
-    tail -c 1500 "$LOG" 2>/dev/null
+    # 원로그 본문은 stdout에 절대 내보내지 않는다 (stderr 포함).
+    # 진단이 필요하면 사용자가 직접 확인한다: grep -av '^{' <log> | tail
     exit $RC
 fi
 
-# 6. 세션 ID 추출 (없으면 'last'로 대체 — resume --last 사용)
+# 6. 세션 ID 추출 — 실패 시 'last'로 대체하지 않는다 (fail-closed)
 SID="$(grep -oE '"(thread_id|session_id|conversation_id)":"[0-9a-f]{8}-[0-9a-f-]{27}"' "$LOG" \
     | head -1 | grep -oE '[0-9a-f]{8}-[0-9a-f-]{27}')"
-echo "SESSION: ${SID:-last}"
+echo "SESSION: ${SID:-UNKNOWN}"
+
+# 7. 응답 형식 검증 — 프롬프트 지시만으로는 보장되지 않으므로 실제로 검사한다
+if [ ! -s "$OUT" ]; then
+    echo "CODEX_FORMAT_WARNING: 최종 응답이 비었다"
+else
+    FIRST_LINE="$(head -1 "$OUT")"
+    case "$FIRST_LINE" in
+        "VERDICT: AGREE"|"VERDICT: DISAGREE"|"VERDICT: NEED_INFO") ;;
+        *) echo "CODEX_FORMAT_WARNING: 첫 줄이 VERDICT 형식 아님" ;;
+    esac
+    if [ "$FIRST_LINE" = "VERDICT: DISAGREE" ]; then
+        # 지적 줄은 심각도까지 갖춰야 한다. 번호가 1부터 연속인지도 확인.
+        if ! grep -qE '^#1 \[(blocking|minor)\] ' "$OUT"; then
+            echo "CODEX_FORMAT_WARNING: DISAGREE인데 '#1 [blocking|minor]' 지적 없음"
+        fi
+        BAD="$(grep -cE '^#[0-9]+ ' "$OUT")"
+        GOOD="$(grep -cE '^#[0-9]+ \[(blocking|minor)\] ' "$OUT")"
+        if [ "$BAD" -ne "$GOOD" ]; then
+            echo "CODEX_FORMAT_WARNING: 심각도 표기 없는 지적 $((BAD - GOOD))건"
+        fi
+        # 번호가 1부터 연속인지 확인 — 중복·건너뜀은 #N 참조를 어긋나게 한다
+        if [ "$(grep -oE '^#[0-9]+' "$OUT" | tr -d '#' \
+                | awk '{n++; if ($1 != n) bad=1} END{print bad+0}')" = "1" ]; then
+            echo "CODEX_FORMAT_WARNING: 지적 번호가 1부터 연속이 아니다(중복·건너뜀)"
+        fi
+    fi
+fi
 echo "---"
 
-# 7. 최종 메시지만 상한 잘라 출력 — 이 stdout만 Claude 컨텍스트에 들어간다
+# 8. 최종 메시지만 문자 단위 상한으로 잘라 출력 — 이 stdout만 Claude 컨텍스트에 들어간다
+#    바이트 절단(head -c)은 한글을 조기 절단하고 UTF-8 경계를 깨므로 문자 단위로 자른다.
 if [ -s "$OUT" ]; then
-    head -c "$MAX_CHARS" "$OUT"
-    echo
-    if [ "$(wc -c <"$OUT")" -gt "$MAX_CHARS" ]; then
-        echo "...[잘림 — 전문: $OUT]"
-    fi
+    MAX_CHARS="$MAX_CHARS" OUT="$OUT" python3 - <<'PY'
+import io, os, signal, sys
+signal.signal(signal.SIGPIPE, signal.SIG_DFL)   # head 등으로 파이프가 닫혀도 조용히 종료
+path = os.environ["OUT"]
+limit = int(os.environ["MAX_CHARS"])
+text = io.open(path, encoding="utf-8", errors="replace").read()
+shown = text[:limit]
+sys.stdout.write(shown)
+if not shown.endswith("\n"):
+    sys.stdout.write("\n")
+if len(text) > limit:
+    sys.stdout.write("...[잘림 — 전문: %s]\n" % path)
+PY
 else
     echo "NO_OUTPUT (log: $LOG)"
 fi
