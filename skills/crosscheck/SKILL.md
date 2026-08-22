@@ -16,13 +16,16 @@ Claude implements the agreed conclusion; Codex checks whether it is done.
 
 | Mode | Trigger examples | Phases run |
 |---|---|---|
-| `analyze` | "둘이 의견 취합해줘", "교차 분석만" | A |
-| `plan` | "핑퐁해서 계획만 줘", "계획서 뽑아" | A + B |
-| `full` (default) | "교차검증하고 작업해" | A + B + C + D |
-| `verify` | "다 됐는지 codex 체크", "이 변경 검증해" | D |
+| `analyze` | "둘이 의견 취합해줘", "교차 분석만" / "just cross-analyze", "merge both opinions only" | A |
+| `plan` | "핑퐁해서 계획만 줘", "계획서 뽑아" / "ping-pong a plan only", "plan but do not implement" | A + B |
+| `full` (default) | "교차검증하고 작업해" / "cross-check it and do the work" | A + B + C + D |
+| `verify` | "다 됐는지 codex 체크", "이 변경 검증해" / "have codex check it is done", "verify this change" | D |
 
+- Trigger examples are illustrative, not exhaustive; Korean and English phrasings are equivalent. Match on intent, not wording.
+- Before falling back to `full`, check whether the request excludes implementation ('analysis only', 'plan only', 'don't change code').
+  Only default to `full` when implementation is genuinely implied.
 - Phases combine freely. If the user stops midway, end with that phase's deliverable.
-- Report detail follows the user's request too. If they say "결과물만", give the final result + a one-line summary only.
+- Report detail follows the user's request too. If they say "결과물만" / "just the deliverable", give the final result + a one-line summary only.
 
 ## Token-leak prevention (MUST NOT violate)
 
@@ -194,4 +197,4 @@ Codex judges whether "the work is done".
 - `plan`: agreed plan + round summary.
 - `full`: result summary + VERDICT flow (e.g. analysis comparison 1R, plan DISAGREE→AGREE 2R, completion check AGREE 1R).
 - All modes: one line each, separating accepted findings / rebutted-or-rejected findings / unresolved dissent.
-- If the user wants "결과만", condense to the deliverable + a one-line summary.
+- If the user wants "결과만" / "just the result", condense to the deliverable + a one-line summary.
