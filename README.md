@@ -9,8 +9,9 @@ run by Claude alone.
 | `verify:crosscheck` | Claude↔Codex ping-pong review. Claude designs and writes the code; Codex analyzes independently and verifies completion. |
 | `verify:unit-test` | Approval-gated unit testing right after a code change, across 7 angles. Writes a report to `<project>/test/`. |
 
-Both skills talk to the user in Korean. The rules and prompts are Korean; this
-README is the English entry point.
+Both skills work in **English and Korean**. Triggers are registered in both
+languages, and the output — chat replies and the test report — follows whichever
+language you write in.
 
 ## Install
 
@@ -36,12 +37,12 @@ Inside a Claude Code session:
 
 ## Usage
 
-Say the trigger, or call the slash command:
+Say the trigger in either language, or call the slash command:
 
-| Intent | Say | Command |
-|---|---|---|
-| Cross-verify with Codex | "크로스체크", "codex 교차검증" | `/verify:crosscheck` |
-| Unit-test the last change | "단위 테스트", "테스트 돌려" | `/verify:unit-test` |
+| Intent | English | Korean | Command |
+|---|---|---|---|
+| Cross-verify with Codex | "crosscheck", "cross-check with codex", "get a codex review" | "크로스체크", "codex 교차검증", "코덱스랑 핑퐁" | `/verify:crosscheck` |
+| Unit-test the last change | "unit test", "run the tests", "multi-angle tests" | "단위 테스트", "테스트 돌려", "다방면 테스트" | `/verify:unit-test` |
 
 ---
 
@@ -57,10 +58,10 @@ Picked from the request; ambiguous requests default to `full`.
 
 | Mode | Phases | Example trigger |
 |---|---|---|
-| `analyze` | A | "둘이 의견 취합해줘" (cross-analysis only) |
-| `plan` | A + B | "핑퐁해서 계획만 줘" (stop at the plan) |
-| `full` | A + B + C + D | "교차검증하고 작업해" (default) |
-| `verify` | D | "다 됐는지 codex 체크" (completion check only) |
+| `analyze` | A | "merge both opinions" / "둘이 의견 취합해줘" |
+| `plan` | A + B | "ping-pong it and just give me the plan" / "핑퐁해서 계획만 줘" |
+| `full` | A + B + C + D | "cross-check it and do the work" / "교차검증하고 작업해" (default) |
+| `verify` | D | "have codex check whether this is done" / "다 됐는지 codex 체크" |
 
 - **A — blind analysis.** Both sides analyze without seeing each other's output.
 - **B — merge into a plan.** Disagreements are numbered and resolved.
@@ -92,8 +93,8 @@ call through `scripts/codex_ask.sh`, which is the only supported entry point:
 ### Review discipline
 
 - Findings arrive numbered and severity-tagged: `#N [blocking|minor]`.
-- Follow-ups reference numbers only (`"#1 반박: <근거>, #2 수용·수정함"`) — never
-  restate the finding. Cheaper, and it keeps the comparison exact.
+- Follow-ups reference numbers only (`"#1 rebutted: <evidence>, #2 accepted and
+  fixed"`) — never restate the finding. Cheaper, and it keeps the comparison exact.
 - A Codex finding is a **hypothesis until verified**. Before acting on one, read
   the cited `file:line` and confirm the path is actually reachable. Measured on
   this bundle, 15 of 23 responses came back DISAGREE — and some of those had
@@ -141,17 +142,17 @@ verdict — except for a lone length warning, which is safe to accept.
 
 Claude-only. It never calls Codex or any other external model.
 
-- **Gate.** After a code change, the skill offers "단위 테스트를 진행할까요?" and
-  runs only on approval. Invoking it directly counts as approval. Tests that
-  touch a database or the network need their own explicit permission line.
+- **Gate.** After a code change, the skill offers to run the tests and proceeds
+  only on approval. Invoking it directly counts as approval. Tests that touch a
+  database or the network need their own explicit permission line.
 - **Scope.** Changed functions from `git diff HEAD`, classified as pure logic /
   needs fixtures / needs DB. Pure logic goes first — it needs no permission.
 - **Angles.** happy path, boundary, empty·null·missing, error path,
   ordering·determinism, before/after equivalence, side effects. Angles that do
   not apply are skipped and named as skipped in the report.
-- **Output.** `<project>/test/UNITTEST_<date>_<topic>.md`, in Korean. Script
-  location is resolved in three steps: project rule docs → an existing test
-  directory → create `test/scripts/`.
+- **Output.** `<project>/test/UNITTEST_<date>_<topic>.md`, written in your
+  language. Script location is resolved in three steps: project rule docs → an
+  existing test directory → create `test/scripts/`.
 
 ---
 

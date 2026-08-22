@@ -1,22 +1,25 @@
 ---
 name: unit-test
-version: "1.1.0"
-description: Use right after Claude finishes modifying code — proactively ASK the user "단위 테스트를 진행할까요?" and run ONLY on approval. Also triggered directly by "단위 테스트", "유닛테스트", "테스트 돌려", "다방면 테스트", "테스트 문서 정리", "/unit-test". Runs multi-angle unit tests (happy path / boundary / empty / error / ordering / before-after equivalence / side effects) using Claude only — never codex or other LLM agents. Writes a Korean result report to <project>/test/. Not this skill for E2E/integration suites or performance benchmarks.
+version: "1.2.0"
+description: Use right after Claude finishes modifying code — proactively ASK the user whether to run unit tests ("단위 테스트를 진행할까요?" / "Want me to run unit tests?") and run ONLY on approval. Also triggered directly by "단위 테스트", "유닛테스트", "테스트 돌려", "다방면 테스트", "테스트 문서 정리", and the English equivalents "unit test", "run the tests", "multi-angle tests", "write up the test results", "/unit-test". Korean and English triggers are equivalent. Runs multi-angle unit tests (happy path / boundary / empty / error / ordering / before-after equivalence / side effects) using Claude only — never codex or other LLM agents. Writes a result report to <project>/test/ in whichever language the user is writing in. Not this skill for E2E/integration suites or performance benchmarks.
 ---
 
 # unit-test — multi-angle unit testing after code changes
 
 Claude designs, runs, and documents unit tests for freshly changed code.
 Claude-only: never call codex, crosscheck scripts, or any external LLM.
-Respond to the user in Korean (all user-facing output and the report stay Korean).
+Respond in the language the user writes in — Korean request, Korean output; English request, English output.
+The report follows that same language. This rule document stays English regardless.
 
 ## 0. Gate — always ask first
 
-- After finishing a code modification, offer: **"단위 테스트를 진행할까요? (변경: <files>)"**
+- After finishing a code modification, offer, in the user's language:
+  **"단위 테스트를 진행할까요? (변경: <files>)"** / **"Want me to run unit tests? (changed: <files>)"**
 - Run ONLY when the user approves. No approval → stop, no test artifacts.
-- If the user invoked the skill directly ("테스트 돌려"), that IS the approval — skip the question.
+- If the user invoked the skill directly ("테스트 돌려", "run the tests"), that IS the approval — skip the question.
 - DB/network-touching tests need a separate explicit permission line in the offer
-  (e.g. "dev DB 접속이 필요합니다 — 진행할까요?"). Never touch remote resources silently.
+  (e.g. "dev DB 접속이 필요합니다 — 진행할까요?" / "This needs a dev DB connection — proceed?").
+  Never touch remote resources silently.
 
 ## 1. Scope — what to test
 
@@ -61,13 +64,14 @@ Pick every applicable angle per unit (skip N/A ones, say so in the report):
 ## 4. Report — `<project>/test/`
 
 - Write `<project>/test/UNITTEST_<YYYYMMDD>_<topic>.md` (create `test/` if absent).
-- Korean, dyslexia-friendly (one sentence per line, short paragraphs). Sections:
-  1. 요약 — 전체 PASS/FAIL/SKIP 수, 한 줄 결론
-  2. 대상 — 변경 파일·함수 목록 (파일:라인)
-  3. 케이스 표 — | # | 각도 | 입력 | 기대 | 실제 | 판정 |
-  4. 실패 상세 — 실패 케이스만 재현 커맨드·원인 분석
-  5. 미커버 위험 — DB 필요 등으로 SKIP한 영역과 사유
-  6. 환경 — PHP/노드 버전, 실행 커맨드, 날짜
+- Written in the user's language, dyslexia-friendly (one sentence per line, short paragraphs).
+  Sections (Korean heading / English heading — use one set, matching the report language):
+  1. 요약 / Summary — total PASS/FAIL/SKIP counts, one-line conclusion
+  2. 대상 / Scope — changed files and functions (file:line)
+  3. 케이스 표 / Case table — | # | angle | input | expected | actual | verdict |
+  4. 실패 상세 / Failures — reproduction command and cause, failed cases only
+  5. 미커버 위험 / Uncovered risk — areas skipped (DB needed, etc.) and why
+  6. 환경 / Environment — runtime version, commands run, date
 - Multiple runs on the same topic → append a dated section to the existing file, don't overwrite history.
 - The report file stays; whether to commit it is the user's call (never auto-commit project repos).
 

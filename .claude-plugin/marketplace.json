@@ -1,14 +1,14 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "verify",
-  "description": "코드 검증 스킬 번들 — crosscheck(교차검증) + unit-test(단위 테스트)",
+  "description": "Code verification skill bundle — crosscheck (cross-verification) + unit-test",
   "owner": {
     "name": "moveju112"
   },
   "plugins": [
     {
       "name": "verify",
-      "description": "crosscheck: Claude↔Codex 핑퐁 교차검증 / unit-test: 수정 후 승인형 다각도 단위 테스트",
+      "description": "crosscheck: Claude↔Codex ping-pong cross-verification / unit-test: approval-gated multi-angle unit testing after a change",
       "source": "./"
     }
   ]

@@ -1,9 +1,12 @@
 ---
 name: crosscheck
-description: Use when the user wants Claude↔Codex cross-verification ping-pong — both analyze independently (blind), exchange findings, merge conclusions, Claude implements, Codex checks completion. Supports flexible modes (analyze-only / plan-only / full / verify-only). Triggers — "크로스체크", "codex 교차검증", "코덱스랑 핑퐁", "codex 리뷰 받아", "교차검증하고 작업해", "codex한테 물어봐", "둘이 의견 취합해", "/crosscheck". Token-leak-safe — every Codex call goes through scripts/codex_ask.sh which returns only the truncated final verdict; never call codex exec directly, never paste file contents or diffs into prompts.
+description: Use when the user wants Claude↔Codex cross-verification ping-pong — both analyze independently (blind), exchange findings, merge conclusions, Claude implements, Codex checks completion. Supports flexible modes (analyze-only / plan-only / full / verify-only). Triggers — "크로스체크", "codex 교차검증", "코덱스랑 핑퐁", "codex 리뷰 받아", "교차검증하고 작업해", "codex한테 물어봐", "둘이 의견 취합해", and the English equivalents "crosscheck", "cross-check with codex", "ping-pong with codex", "get a codex review", "ask codex", "have codex verify this", "merge both opinions", "/crosscheck". Korean and English triggers are equivalent; reply in whichever language the user writes. Token-leak-safe — every Codex call goes through scripts/codex_ask.sh which returns only the truncated final verdict; never call codex exec directly, never paste file contents or diffs into prompts.
 ---
 
 # Codex 크로스체크 (crosscheck)
+
+> 응답 언어 — 사용자가 쓴 언어를 따른다. 한국어 요청이면 한국어, 영어 요청이면 영어로 보고한다.
+> 아래 규칙 문서 자체는 한국어지만, 사용자에게 나가는 산출물 언어와는 무관하다.
 
 Claude와 Codex가 **각자 독립 분석**하고, 결과를 교환·취합한다.
 합의된 결론으로 Claude가 작업하고, 완료 여부는 Codex가 체크한다.

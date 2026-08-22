@@ -1,8 +1,8 @@
 {
   "name": "verify",
-  "displayName": "Verify — 교차검증·단위테스트",
-  "description": "코드 검증 번들 — crosscheck(Claude↔Codex 핑퐁 교차검증) + unit-test(수정 후 승인형 다각도 단위 테스트)",
-  "version": "2.1.0",
+  "displayName": "Verify — Cross-check & Unit Tests",
+  "description": "Code verification bundle — crosscheck (Claude↔Codex ping-pong review) + unit-test (approval-gated multi-angle unit testing). Korean and English triggers both work.",
+  "version": "2.2.0",
   "author": {
     "name": "moveju112",
     "email": "moveju112@users.noreply.github.com"
@@ -13,7 +13,8 @@
     "cross-check",
     "review",
     "ping-pong",
-    "unit-test"
+    "unit-test",
+    "verification"
   ],
   "skills": "./skills/"
 }
