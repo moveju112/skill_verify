@@ -1,5 +1,12 @@
 # skill_verify
 
+[![Release](https://img.shields.io/github/v/release/moveju112/skill_verify?color=blue)](https://github.com/moveju112/skill_verify/releases)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+
+```bash
+npx skills add moveju112/skill_verify
+```
+
 A Claude Code plugin (`verify`) that bundles two code-verification skills: an
 adversarial cross-check against OpenAI Codex, and a multi-angle unit-test pass
 run by Claude alone.
