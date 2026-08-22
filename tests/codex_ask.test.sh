@@ -109,6 +109,13 @@ assert_has "3000자 초과 경고" "3000자 초과" "$OUT"
 OUT="$(bash "$SCRIPT" resume "$UUID" "질문" 2>&1)"
 assert_has "bullet 8개 경고" "bullet 8개" "$OUT"
 
+# 10-1. bullet 마커는 `-` 외에 `*`·`+`도 센다 (마커를 바꿔 계약을 우회하는 것 방지)
+for MARK in '*' '+'; do
+    { echo "VERDICT: AGREE"; for i in $(seq 8); do echo "$MARK 근거 $i"; done; } >"$FAKE_REPLY"
+    OUT="$(bash "$SCRIPT" resume "$UUID" "질문" 2>&1)"
+    assert_has "bullet '$MARK' 8개 경고" "bullet 8개" "$OUT"
+done
+
 # 11. 실패 분류 — codex 종료코드 124는 타임아웃
 printf 'VERDICT: AGREE\n' >"$FAKE_REPLY"
 OUT="$(FAKE_RC=124 bash "$SCRIPT" resume "$UUID" "질문" 2>&1)"
