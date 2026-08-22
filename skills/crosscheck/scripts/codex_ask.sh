@@ -5,7 +5,7 @@
 # 사용법:
 #   codex_ask.sh check                                  # 프리플라이트 (로그인 상태, 토큰 소모 없음)
 #   codex_ask.sh new    [-C 작업디렉터리] "프롬프트"
-#   codex_ask.sh resume <세션ID|last> [-C 작업디렉터리] "프롬프트"
+#   codex_ask.sh resume <세션ID> [-C 작업디렉터리] "프롬프트"   # 세션ID는 UUID 형식만
 #   프롬프트가 '-' 이면 stdin에서 읽는다 (긴 프롬프트용)
 #
 # 환경변수:
@@ -23,7 +23,7 @@
 set -uo pipefail
 umask 077   # 로그에 repo 파일 내용이 남으므로 소유자 전용 권한으로 생성
 
-usage() { echo "usage: codex_ask.sh check | new|resume [<session|last>] [-C dir] \"prompt\"" >&2; exit 2; }
+usage() { echo "usage: codex_ask.sh check | new|resume [<session-uuid>] [-C dir] \"prompt\"" >&2; exit 2; }
 
 # 1. 인자 파싱
 MODE="${1:-}"; shift || true
@@ -34,7 +34,11 @@ if [ "$MODE" = "check" ]; then
         echo "CODEX_NOT_INSTALLED"; exit 1
     fi
     if STATUS="$(codex login status 2>&1)"; then
-        echo "CODEX_OK: $STATUS"; exit 0
+        echo "CODEX_OK: $STATUS"
+        # 진단용 — 실행 바이너리 경로·버전 기록 (best-effort, 실패해도 CODEX_OK 유지)
+        echo "CODEX_BIN: $(command -v codex)"
+        echo "CODEX_VERSION: $(timeout 10 codex --version 2>&1 | head -1)"
+        exit 0
     else
         echo "CODEX_AUTH_ERROR: $STATUS"; exit 1
     fi
@@ -43,9 +47,10 @@ SESSION=""
 if [ "$MODE" = "resume" ]; then
     SESSION="${1:-}"; shift || true
     [ -n "$SESSION" ] || usage
-    # 세션 ID 미확인 상태로 이어가기 금지 — 병렬 실행 중 남의 세션을 잇는 사고 방지
-    if [ "$SESSION" = "UNKNOWN" ]; then
-        echo "CODEX_ERROR: 세션 ID 미확인. resume 불가 — new 세션으로 다시 시작하라."; exit 3
+    # 명시 세션 UUID만 허용 — UNKNOWN·last·임의 문자열은 실행 전 차단.
+    # 전역 최신 세션(--last)에 붙으면 병렬 실행 중 남의 세션을 잇는 사고가 난다.
+    if ! echo "$SESSION" | grep -qiE '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'; then
+        echo "CODEX_ERROR: 세션 ID가 UUID 형식이 아니다('$SESSION'). resume 불가 — new 세션으로 다시 시작하라."; exit 3
     fi
 elif [ "$MODE" != "new" ]; then
     usage
@@ -102,12 +107,11 @@ if [ -n "${CODEX_EFFORT:-}" ]; then
 fi
 
 # 호출측 타임아웃과 경쟁하지 않도록 스크립트가 먼저 자른다 (exit 124)
+# -k 10: TERM 후 10초 안에 안 죽으면 KILL — 좀비 codex가 호출측 타임아웃까지 물고 있는 것 방지
 if [ "$MODE" = "new" ]; then
-    timeout "$TIMEOUT_SEC" codex exec "${ARGS[@]}" - <<<"$FULL_PROMPT" >"$LOG" 2>&1
-elif [ "$SESSION" = "last" ]; then
-    timeout "$TIMEOUT_SEC" codex exec resume --last "${ARGS[@]}" - <<<"$FULL_PROMPT" >"$LOG" 2>&1
+    timeout -k 10 "$TIMEOUT_SEC" codex exec "${ARGS[@]}" - <<<"$FULL_PROMPT" >"$LOG" 2>&1
 else
-    timeout "$TIMEOUT_SEC" codex exec resume "$SESSION" "${ARGS[@]}" - <<<"$FULL_PROMPT" >"$LOG" 2>&1
+    timeout -k 10 "$TIMEOUT_SEC" codex exec resume "$SESSION" "${ARGS[@]}" - <<<"$FULL_PROMPT" >"$LOG" 2>&1
 fi
 RC=$?
 
@@ -160,6 +164,15 @@ else
                 | awk '{n++; if ($1 != n) bad=1} END{print bad+0}')" = "1" ]; then
             echo "CODEX_FORMAT_WARNING: 지적 번호가 1부터 연속이 아니다(중복·건너뜀)"
         fi
+    fi
+    # 분량 계약 검사 — FORMAT 지시(3000자·bullet 7개)를 실제로 어겼는지 본다
+    CHARS="$(python3 -c 'import io,sys;print(len(io.open(sys.argv[1],encoding="utf-8",errors="replace").read()))' "$OUT")"
+    if [ "$CHARS" -gt 3000 ]; then
+        echo "CODEX_FORMAT_WARNING: 응답 ${CHARS}자 — 3000자 초과"
+    fi
+    BULLETS="$(grep -cE '^[[:space:]]*- ' "$OUT")"
+    if [ "$BULLETS" -gt 7 ]; then
+        echo "CODEX_FORMAT_WARNING: 근거 bullet ${BULLETS}개 — 7개 초과"
     fi
 fi
 echo "---"
