@@ -170,7 +170,7 @@ else
     if [ "$CHARS" -gt 3000 ]; then
         echo "CODEX_FORMAT_WARNING: 응답 ${CHARS}자 — 3000자 초과"
     fi
-    BULLETS="$(grep -cE '^[[:space:]]*- ' "$OUT")"
+    BULLETS="$(grep -cE '^[[:space:]]*[-*+] ' "$OUT")"
     if [ "$BULLETS" -gt 7 ]; then
         echo "CODEX_FORMAT_WARNING: 근거 bullet ${BULLETS}개 — 7개 초과"
     fi

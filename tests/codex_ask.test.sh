@@ -11,7 +11,7 @@ FAIL=0
 # 1. 단언 헬퍼 — 출력에 기대 문자열이 있는지만 본다
 assert_has() {
     local label="$1" expect="$2" actual="$3"
-    if echo "$actual" | grep -qF "$expect"; then
+    if echo "$actual" | grep -qF -- "$expect"; then
         echo "ok   - $label"
     else
         echo "FAIL - $label (기대: '$expect')"
@@ -21,7 +21,7 @@ assert_has() {
 }
 assert_not_has() {
     local label="$1" unexpect="$2" actual="$3"
-    if echo "$actual" | grep -qF "$unexpect"; then
+    if echo "$actual" | grep -qF -- "$unexpect"; then
         echo "FAIL - $label ('$unexpect'가 나오면 안 된다)"
         FAIL=1
     else

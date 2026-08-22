@@ -13,6 +13,14 @@
 - Codex는 read-only 샌드박스에서 repo를 직접 읽는다. 파일 내용·diff를 프롬프트에 싣지 않는다.
 - 지적은 `#N [blocking|minor]` 번호제, 라운드 캡 + 확인 전용 패스. 수용 전 `파일:라인` 재검증 게이트 통과 필수.
 - 호출은 Bash `timeout: 930000` 필수 (스크립트 내부 상한 900초). 로그는 소유자 전용 권한 + 14일 자동 정리.
+- resume은 명시 세션 UUID만 허용 — 전역 최신 세션(`--last`) 이어가기는 지원하지 않는다.
+- Phase D(완료 체크)는 기본 background 실행. 결과 회수 전에는 종결하지 않는다.
+
+### 테스트
+
+```bash
+bash tests/codex_ask.test.sh   # 가짜 codex·timeout 주입, 실제 API 호출 없음
+```
 
 ## unit-test
 
@@ -24,8 +32,15 @@
 ## 설치
 
 ```bash
-claude plugin marketplace add ~/project/skills/skill_verify
+claude plugin marketplace add moveju112/skill_verify
 claude plugin install verify@verify
+```
+
+Claude Code 세션 안에서는 슬래시 명령으로도 된다.
+
+```
+/plugin marketplace add moveju112/skill_verify
+/plugin install verify@verify
 ```
 
 ## 사용
