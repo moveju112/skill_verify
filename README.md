@@ -16,11 +16,21 @@ language you write in.
 ## Install
 
 ```bash
+npx skills add moveju112/skill_verify
+```
+
+Installs both skills. Works with Claude Code, Codex, Cursor, Gemini CLI, GitHub
+Copilot, and other agents the [Skills CLI](https://skills.sh) supports. Add `-g`
+for a user-level install instead of the current project.
+
+As a Claude Code plugin instead:
+
+```bash
 claude plugin marketplace add moveju112/skill_verify
 claude plugin install verify@verify
 ```
 
-Inside a Claude Code session:
+Or from inside a Claude Code session:
 
 ```
 /plugin marketplace add moveju112/skill_verify
