@@ -2,7 +2,7 @@
   "name": "verify",
   "displayName": "Verify — Cross-check & Unit Tests",
   "description": "Code verification bundle — crosscheck (Claude↔Codex ping-pong review) + unit-test (approval-gated multi-angle unit testing). Korean and English triggers both work.",
-  "version": "2.2.0",
+  "version": "2.2.1",
   "author": {
     "name": "moveju112",
     "email": "moveju112@users.noreply.github.com"
