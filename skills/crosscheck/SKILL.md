@@ -1,16 +1,16 @@
 ---
 name: crosscheck
-description: Use when the user wants Claude↔Codex cross-verification ping-pong — both analyze independently (blind), exchange findings, merge conclusions, Claude implements, Codex checks completion. Supports flexible modes (analyze-only / plan-only / full / verify-only). Triggers — "크로스체크", "codex 교차검증", "코덱스랑 핑퐁", "codex 리뷰 받아", "교차검증하고 작업해", "codex한테 물어봐", "둘이 의견 취합해", and the English equivalents "crosscheck", "cross-check with codex", "ping-pong with codex", "get a codex review", "ask codex", "have codex verify this", "merge both opinions", "/crosscheck". Korean and English triggers are equivalent; reply in whichever language the user writes. Token-leak-safe — every Codex call goes through scripts/codex_ask.sh which returns only the truncated final verdict; never call codex exec directly, never paste file contents or diffs into prompts.
+description: Use in Claude when the user wants Claude↔Codex cross-verification ping-pong — both analyze independently (blind), exchange findings, merge conclusions, the host implements, and the counterpart checks completion. On this Claude entrypoint, Claude is the host and Codex is the reviewer. Supports analyze-only / plan-only / full / verify-only. Triggers — "크로스체크", "codex 교차검증", "코덱스랑 핑퐁", "codex 리뷰 받아", "교차검증하고 작업해", "codex한테 물어봐", "둘이 의견 취합해", and the English equivalents "crosscheck", "cross-check with codex", "ping-pong with codex", "get a codex review", "ask codex", "have codex verify this", "merge both opinions", "/crosscheck". Korean and English triggers are equivalent; reply in whichever language the user writes. Every Codex call goes through scripts/codex_ask.sh; never call codex exec directly or paste file contents or diffs into prompts.
 ---
 
-# Codex Crosscheck (crosscheck)
+# Claude-hosted Crosscheck (crosscheck)
 
 > Response language — follow the language the user writes in. Korean request, report in Korean; English request, report in English.
 > This rule document is written in English; that has no bearing on the language of the output delivered to the user.
 
 Claude and Codex each **analyze independently**, then exchange and merge results.
-Claude implements the agreed conclusion; Codex checks whether it is done.
-**Claude is always the one coding. Codex is an independent analyst + verifier.**
+The agent running the user session owns implementation; the counterpart is an independent analyst and verifier.
+**In this Claude entrypoint, Claude implements and Codex reviews.** The Codex entrypoint uses the reciprocal flow in `platforms/codex/verify`.
 
 ## Modes — infer from the request; when ambiguous, use full
 
@@ -107,20 +107,26 @@ Claude is the main. Work does not stop without codex.
 
 Core: **both investigate the same question separately. Blind until they see each other's results.**
 
-1. Claude analyzes on its own (code inspection, grep, etc.). Note the conclusion in 10 lines or fewer.
-   - Blind integrity: **NEVER carry a past conclusion over as-is.** Memory and earlier session summaries are hypotheses only;
-     re-establish the evidence from code this round. Flag any reused past conclusion in the final report.
-2. Send **the same question** to codex in a `new` session.
+1. Before analyzing, finalize the reviewer prompt with the user's question and path hints.
    - ★ Do not put Claude's analysis into the prompt. Once anchored, the cross-verification is worthless.
    - Prompt template: `"<질문>. 관련 코드를 직접 조사해 근거와 함께 답하라. 시작점: <경로 힌트>"`
-3. Compare the two analyses — write out the agreements / disagreements.
-4. Push **only the disagreements** back via `resume`:
+2. Start the codex `new` call with Bash `run_in_background: true` and retain its task handle.
+   - Never fire-and-forget. Collect that exact task's result and `SESSION:` UUID before comparison.
+   - If background execution is unavailable, use the original foreground sequence after step 3.
+   - If collection fails because the notification or output was lost, retry once in the foreground with the same pre-fixed prompt.
+3. While codex runs, Claude analyzes independently (code inspection, grep, etc.). Note the conclusion in 10 lines or fewer.
+   - Do not alter the in-flight reviewer prompt or send Claude's intermediate findings to codex.
+   - Until Claude's conclusion is recorded, treat a background completion notification only as a ready signal; do not open, read, or act on the reviewer output.
+   - Blind integrity: **NEVER carry a past conclusion over as-is.** Memory and earlier session summaries are hypotheses only;
+     re-establish the evidence from code this round. Flag any reused past conclusion in the final report.
+4. Collect the background result, then compare the two analyses — write out the agreements / disagreements.
+5. Push **only the disagreements** back via `resume`:
    ```
    내 독립 분석은 이렇다: <불일치 항목 요약>.
    네 분석과 다르다. 각자 근거(파일:라인)를 대조해 어느 쪽이 맞는지 판정하라.
    ```
-5. After at most 2 comparison rounds, fix the merged conclusion. Record unresolved items as dissent.
-6. In `analyze` mode, report the merged conclusion and stop.
+6. After at most 2 comparison rounds, fix the merged conclusion. Record unresolved items as dissent.
+7. In `analyze` mode, report the merged conclusion and stop.
 
 ## Finding-acceptance gate (shared by Phases A, B, D — MUST NOT violate)
 

@@ -1,14 +1,14 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "verify",
-  "description": "Code verification skill bundle — crosscheck (cross-verification) + unit-test",
+  "description": "Code verification skill bundle — bidirectional Claude↔Codex crosscheck + unit-test",
   "owner": {
     "name": "moveju112"
   },
   "plugins": [
     {
       "name": "verify",
-      "description": "crosscheck: Claude↔Codex ping-pong cross-verification / unit-test: approval-gated multi-angle unit testing after a change",
+      "description": "crosscheck: the active Claude or Codex host implements while the counterpart reviews / unit-test: approval-gated multi-angle testing",
       "source": "./"
     }
   ]

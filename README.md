@@ -7,14 +7,15 @@
 npx skills add moveju112/skill_verify
 ```
 
-A Claude Code plugin (`verify`) that bundles two code-verification skills: an
-adversarial cross-check against OpenAI Codex, and a multi-angle unit-test pass
-run by Claude alone.
+A bidirectional Claude Code and Codex verification bundle. The active host owns
+the implementation while the other agent independently analyzes and verifies it.
+It also includes a host-neutral multi-angle unit-test pass shared by Claude and Codex.
 
 | Skill | Role |
 |---|---|
-| `verify:crosscheck` | Claude↔Codex ping-pong review. Claude designs and writes the code; Codex analyzes independently and verifies completion. |
-| `verify:unit-test` | Approval-gated unit testing right after a code change, across 7 angles. Writes a report to `<project>/test/`. |
+| `verify:crosscheck` in Claude | Claude designs and writes the code; Codex independently analyzes and verifies completion. |
+| `verify` in Codex | Ordinary requests stay local. An explicit Claude crosscheck makes Codex implement and Claude independently review. |
+| `unit-test` in Claude or Codex | Approval-gated unit testing right after a code change, across 7 angles. Writes a report to `<project>/test/`. |
 
 Both skills work in **English and Korean**. Triggers are registered in both
 languages, and the output — chat replies and the test report — follows whichever
@@ -26,9 +27,17 @@ language you write in.
 npx skills add moveju112/skill_verify
 ```
 
-Installs both skills. Works with Claude Code, Codex, Cursor, Gemini CLI, GitHub
-Copilot, and other agents the [Skills CLI](https://skills.sh) supports. Add `-g`
-for a user-level install instead of the current project.
+Installs the portable skills. This repository also contains a Codex-specific
+entrypoint at `platforms/codex/verify` for the reciprocal Claude-review flow.
+
+The Codex crosscheck entrypoint is runtime-specific and is not installed from `skills/`.
+On a shared-agent host, register `codex:verify` as runtime-only and point the
+Codex `verify` skill link at `platforms/codex/verify`. Without a shared manager:
+
+```bash
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
+ln -sfn "$PWD/platforms/codex/verify" "${CODEX_HOME:-$HOME/.codex}/skills/verify"
+```
 
 As a Claude Code plugin instead:
 
@@ -46,10 +55,10 @@ Or from inside a Claude Code session:
 
 ## Requirements
 
-- Claude Code with plugin support.
-- `crosscheck` only: the [Codex CLI](https://github.com/openai/codex)
-  (`npm i -g @openai/codex`), logged in (`codex login`). Without it the skill
-  degrades to a documented Claude-only fallback instead of failing.
+- Claude-hosted crosscheck: Claude Code plus a logged-in Codex CLI.
+- Codex-hosted crosscheck: Codex plus a logged-in Claude Code CLI and Linux
+  Bubblewrap (`bwrap`). Calling Claude requires explicit task-scoped permission;
+  generic verification never calls it.
 - `unit-test` has no external dependency.
 
 ## Usage
@@ -59,15 +68,16 @@ Say the trigger in either language, or call the slash command:
 | Intent | English | Korean | Command |
 |---|---|---|---|
 | Cross-verify with Codex | "crosscheck", "cross-check with codex", "get a codex review" | "크로스체크", "codex 교차검증", "코덱스랑 핑퐁" | `/verify:crosscheck` |
-| Unit-test the last change | "unit test", "run the tests", "multi-angle tests" | "단위 테스트", "테스트 돌려", "다방면 테스트" | `/verify:unit-test` |
+| Cross-verify with Claude from Codex | "cross-check with Claude", "ask Claude to review" | "클로드랑 크로스체크", "클로드 리뷰 받아" | `$verify` or natural language |
+| Unit-test the last change | "unit test", "run the tests", "multi-angle tests" | "단위 테스트", "테스트 돌려", "다방면 테스트" | `/unit-test`, `/verify:unit-test`, or `$unit-test` |
 
 ---
 
 ## crosscheck
 
 Claude and Codex analyze **independently and blind**, then exchange and merge
-findings. Claude always owns the code; Codex is an independent analyst and
-verifier, never an author.
+findings. The agent running the user's session owns the code; the counterpart
+is an independent analyst and verifier, never an author.
 
 ### Modes
 
@@ -80,7 +90,9 @@ Picked from the request; ambiguous requests default to `full`.
 | `full` | A + B + C + D | "cross-check it and do the work" / "교차검증하고 작업해" (default) |
 | `verify` | D | "have codex check whether this is done" / "다 됐는지 codex 체크" |
 
-- **A — blind analysis.** Both sides analyze without seeing each other's output.
+- **A — parallel blind analysis.** The reviewer call starts in the background
+  from a pre-fixed prompt while the host analyzes independently. The exact task
+  result is collected before comparison; dependent later phases remain sequential.
 - **B — merge into a plan.** Disagreements are numbered and resolved.
 - **C — implementation.** Claude only.
 - **D — completion check.** A fresh Codex session judges whether the work meets
@@ -153,11 +165,49 @@ Status strings on stdout: `CODEX_OK`, `CODEX_NOT_INSTALLED`, `CODEX_AUTH_ERROR`,
 over 3,000 characters, or more than 7 bullets). Re-ask instead of guessing the
 verdict — except for a lone length warning, which is safe to accept.
 
+### `claude_ask.sh` (Codex host)
+
+The reciprocal Codex entrypoint calls Claude only through
+`platforms/codex/verify/scripts/claude_ask.sh`:
+
+```bash
+claude_ask.sh check
+CROSSCHECK_REMOTE_APPROVED=1 claude_ask.sh new -C <repo> "prompt"
+CROSSCHECK_REMOTE_APPROVED=1 claude_ask.sh resume <session-uuid> -C <repo> "follow-up"
+```
+
+- `check` is local-only and verifies Claude login plus required commands.
+- `new` and `resume` refuse to run without the task-scoped
+  `CROSSCHECK_REMOTE_APPROVED=1` gate.
+- Bubblewrap mounts only the target repository (read-only), current Git evidence
+  (read-only), and the current session's isolated home (writable). Host
+  credentials, unrelated repositories, and older review sessions are absent.
+- Claude receives only `Read`, `Glob`, and `Grep`; mutation, Bash, workflow,
+  subagent, and external-tool entrypoints are disabled.
+- The auth secret is passed through a one-use file descriptor. It is not mounted
+  into the sandbox or inherited as a secret environment variable.
+
+| Env var | Default | Meaning |
+|---|---|---|
+| `CROSSCHECK_REMOTE_APPROVED` | unset | must be `1` for each approved Claude run |
+| `CROSSCHECK_BASE_SHA` | `HEAD` | baseline for the precomputed review diff |
+| `CROSSCHECK_MAX_CHARS` | `6000` | stdout truncation limit |
+| `CROSSCHECK_TIMEOUT` | `900` | per-call ceiling, seconds |
+| `CROSSCHECK_LOG_DAYS` | `14` | evidence, raw-log, and session retention |
+| `CROSSCHECK_STATE_DIR` | `~/.cache/claude-crosscheck` | owner-only state root, outside the reviewed repo |
+| `CLAUDE_MODEL` | Claude default | model override |
+| `CLAUDE_EFFORT` | Claude default | effort override |
+
+Status strings on stdout: `CLAUDE_OK`, `CLAUDE_NOT_INSTALLED`,
+`CLAUDE_PERMISSION_REQUIRED`, `CLAUDE_AUTH_ERROR`, `CLAUDE_QUOTA_ERROR`,
+`CLAUDE_TIMEOUT`, `CLAUDE_ERROR`, `CLAUDE_FORMAT_WARNING`.
+
 ---
 
 ## unit-test
 
-Claude-only. It never calls Codex or any other external model.
+Shared by Claude and Codex through the same host-neutral skill source.
+The active host runs the tests and never calls the counterpart or another model.
 
 - **Gate.** After a code change, the skill offers to run the tests and proceeds
   only on approval. Invoking it directly counts as approval. Tests that touch a
@@ -176,14 +226,19 @@ Claude-only. It never calls Codex or any other external model.
 ## Development
 
 ```bash
-bash tests/codex_ask.test.sh   # injects a fake codex + timeout; makes no API calls
+bash tests/codex_ask.test.sh    # fake Codex CLI; no API calls
+bash tests/claude_ask.test.sh   # fake Claude CLI; no API calls
+bash tests/claude_sandbox.test.sh # real Bubblewrap boundary; no API calls
+bash tests/review_git.test.sh   # temporary local Git repository
+bash tests/unit_test_skill.test.sh # shared host-neutral unit-test contract
 ```
 
 ```
 .claude-plugin/     plugin.json + marketplace.json
 skills/crosscheck/  SKILL.md + scripts/codex_ask.sh
 skills/unit-test/   SKILL.md
-tests/              wrapper test suite
+platforms/codex/    reciprocal Codex host entrypoint + read-only wrappers
+tests/              wrappers + sandbox/Git boundaries + shared unit-test contract
 ```
 
 ## License
