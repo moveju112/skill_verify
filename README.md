@@ -210,16 +210,24 @@ Shared by Claude and Codex through the same host-neutral skill source.
 The active host runs the tests and never calls the counterpart or another model.
 
 - **Gate.** After a code change, the skill offers to run the tests and proceeds
-  only on approval. Invoking it directly counts as approval. Tests that touch a
-  database or the network need their own explicit permission line.
+  only on approval. Invoking it directly counts as approval. External DB,
+  network, runtime, and performance checks are excluded and require a separate
+  verification step with its own permission.
 - **Scope.** Changed functions from `git diff HEAD`, classified as pure logic /
-  needs fixtures / needs DB. Pure logic goes first — it needs no permission.
+  local fixtures / external verification. Unit testing stays local; DB, network,
+  runtime, and performance checks are routed to a separate verification step.
 - **Angles.** happy path, boundary, empty·null·missing, error path,
   ordering·determinism, before/after equivalence, side effects. Angles that do
   not apply are skipped and named as skipped in the report.
+- **Efficiency.** Focused tests run first. One full-suite owner runs on the final
+  stable change; an official build/release wrapper owns that gate when it already
+  runs the suite, preventing duplicate full runs. Proven baseline failures are
+  recorded once instead of rerun after every edit.
 - **Output.** `<project>/test/UNITTEST_<date>_<topic>.md`, written in your
-  language. Script location is resolved in three steps: project rule docs → an
-  existing test directory → create `test/scripts/`.
+  language. Unit counts are validated against case rows, reports roll over at
+  300 lines or a changed objective, and external checks never enter unit totals.
+  Script location is resolved in three steps: project rule docs → an existing
+  test directory → create `test/scripts/`.
 
 ---
 
@@ -236,7 +244,7 @@ bash tests/unit_test_skill.test.sh # shared host-neutral unit-test contract
 ```
 .claude-plugin/     plugin.json + marketplace.json
 skills/crosscheck/  SKILL.md + scripts/codex_ask.sh
-skills/unit-test/   SKILL.md
+skills/unit-test/   SKILL.md + scripts/validate_report.py
 platforms/codex/    reciprocal Codex host entrypoint + read-only wrappers
 tests/              wrappers + sandbox/Git boundaries + shared unit-test contract
 ```
