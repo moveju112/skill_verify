@@ -112,8 +112,12 @@ Core: **both investigate the same question separately. Blind until they see each
    - Prompt template: `"<질문>. 관련 코드를 직접 조사해 근거와 함께 답하라. 시작점: <경로 힌트>"`
 2. Start the codex `new` call with Bash `run_in_background: true` and retain its task handle.
    - Never fire-and-forget. Collect that exact task's result and `SESSION:` UUID before comparison.
+   - **How to collect: Read the `output-file` path from the completion notification.** Do NOT use `TaskOutput` —
+     it is deprecated, its handle is reclaimed once the completion notification lands ("No task found with ID"),
+     and its `timeout` caps at 600000 so the 930000 above cannot be passed to it.
    - If background execution is unavailable, use the original foreground sequence after step 3.
-   - If collection fails because the notification or output was lost, retry once in the foreground with the same pre-fixed prompt.
+   - Re-run in the foreground ONLY when the `output-file` itself is missing or empty. A dead task handle is not a
+     lost result — the file is still there, and re-running burns another full codex call (median 132s).
 3. While codex runs, Claude analyzes independently (code inspection, grep, etc.). Note the conclusion in 10 lines or fewer.
    - Do not alter the in-flight reviewer prompt or send Claude's intermediate findings to codex.
    - Until Claude's conclusion is recorded, treat a background completion notification only as a ready signal; do not open, read, or act on the reviewer output.
@@ -166,8 +170,9 @@ Codex judges whether "the work is done".
 0. **Execution — background by default.** Fire Phase D calls with Bash `run_in_background: true`.
    A completion check takes hundreds of seconds; in foreground the session stalls for that whole time.
    - Foreground as an exception: the change is a small 1–2 files, or the user explicitly asked to wait.
-   - **Collection contract**: after firing, wait for the completion notification. **NEVER close out full mode before collecting the result.**
-     If collection itself fails (lost notification, lost output), retry once in foreground.
+   - **Collection contract**: after firing, wait for the completion notification, then Read its `output-file` path.
+     **NEVER close out full mode before collecting the result.** `TaskOutput` is deprecated and fails once the
+     notification has landed — see Phase A step 2. Retry in foreground only when the `output-file` is missing or empty.
    - If the collected result is `CODEX_AUTH_ERROR`/`CODEX_QUOTA_ERROR`/`CODEX_TIMEOUT`, apply the existing fallback instead of retrying.
 1. Request it in a **new session** — do not continue the analysis or planning session (a fresh view, unanchored).
    - **Name the changed paths to pin the diff scope** — stops unrelated working-tree changes from muddying verification.
