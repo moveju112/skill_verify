@@ -32,8 +32,12 @@ require("The active host designs, runs, and documents" in text,
         "실행 주체가 현재 호스트로 정의되지 않았습니다")
 require("never call the counterpart" in text,
         "상대 모델을 호출하지 않는 경계가 없습니다")
-require("invoked the skill directly" in text and "IS the approval" in text,
-        "직접 호출의 로컬 테스트 승인 규칙이 없습니다")
+require("explicitly asks for unit testing" in text and "does not trigger this skill" in text,
+        "명시적 요청 전용 호출 규칙이 없습니다")
+require("Do not offer unit tests merely because code changed" in text,
+        "코드 수정 직후 테스트 제안 금지 규칙이 없습니다")
+require("direct request to run unit tests IS the approval" in text,
+        "직접 요청의 로컬 테스트 승인 규칙이 없습니다")
 require("Never access an external DB, network" in text,
         "외부 DB/네트워크를 단위 테스트에서 분리하는 규칙이 없습니다")
 

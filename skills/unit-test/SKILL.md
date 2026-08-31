@@ -1,6 +1,6 @@
 ---
 name: unit-test
-description: Use right after Codex or Claude finishes modifying code to run approval-gated, efficiency-aware multi-angle unit tests. Also triggered directly by "단위 테스트", "유닛테스트", "테스트 돌려", "다방면 테스트", "테스트 문서 정리", and the English equivalents "unit test", "run the tests", "multi-angle tests", "write up the test results", and "/unit-test". The active host runs tests locally without calling another LLM, avoids duplicate full-suite gates, and writes a focused report to the project's test directory. Not for E2E, external DB/network checks, runtime verification, or performance benchmarks.
+description: Use when the user directly requests efficiency-aware multi-angle unit tests or a test report after code changes. Triggers include "단위 테스트", "유닛테스트", "테스트 돌려", "다방면 테스트", "테스트 문서 정리", and the English equivalents "unit test", "run the tests", "multi-angle tests", "write up the test results", and "/unit-test". Codex or Claude runs tests locally without calling another LLM, avoids duplicate full-suite gates, and writes a focused report to the project's test directory. Not for E2E, external DB/network checks, runtime verification, or performance benchmarks.
 ---
 
 # unit-test — multi-angle unit testing after code changes
@@ -11,12 +11,11 @@ Host-local only: never call the counterpart, crosscheck scripts, or another LLM.
 Respond in the language the user writes in — Korean request, Korean output; English request, English output.
 The report follows that same language. This rule document stays English regardless.
 
-## 0. Gate — always ask first
+## 0. Invocation — explicit requests only
 
-- After Codex or Claude finishes a code modification, offer, in the user's language:
-  **"단위 테스트를 진행할까요? (변경: <files>)"** / **"Want me to run unit tests? (changed: <files>)"**
-- Run ONLY when the user approves. No approval → stop, no test artifacts.
-- If the user invoked the skill directly ("테스트 돌려", "run the tests"), that IS the approval — skip the question.
+- Use this skill only when the user explicitly asks for unit testing or its report.
+- Ordinary code modification does not trigger this skill. Do not offer unit tests merely because code changed.
+- A direct request to run unit tests IS the approval for local unit testing; do not ask again.
 - Approval covers local unit testing only. Never access an external DB, network,
   service, or runtime from this skill. Route those checks to a separate verification
   step with its own explicit permission.
