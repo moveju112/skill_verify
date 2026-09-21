@@ -7,14 +7,14 @@
 npx skills add moveju112/skill_verify
 ```
 
-A bidirectional Claude Code and Codex verification bundle. The active host owns
+A shared Claude Code, Codex, and pi verification bundle. The active host owns
 the implementation while the other agent independently analyzes and verifies it.
 It also includes a host-neutral multi-angle unit-test pass shared by Claude and Codex.
 
 | Skill | Role |
 |---|---|
 | `verify:crosscheck` in Claude | Claude designs and writes the code; Codex independently analyzes and verifies completion. |
-| `verify` in Codex | Ordinary requests stay local. An explicit Claude crosscheck makes Codex implement and Claude independently review. |
+| `verify` in Claude, Codex, or pi | Ordinary requests stay local. Explicit crosschecks select the other model family as the read-only reviewer. |
 | `unit-test` in Claude or Codex | Approval-gated unit testing right after a code change, across 7 angles. Writes a report to `<project>/test/`. |
 
 Both skills work in **English and Korean**. Triggers are registered in both
@@ -27,16 +27,47 @@ language you write in.
 npx skills add moveju112/skill_verify
 ```
 
-Installs the portable skills. This repository also contains a Codex-specific
-entrypoint at `platforms/codex/verify` for the reciprocal Claude-review flow.
+The self-contained shared entrypoint is `skills/verify`, including both reviewer
+wrappers. `platforms/codex/verify` remains a compatibility path; its files point
+to the same shared implementation. Existing `verify:crosscheck` remains available.
 
-The Codex crosscheck entrypoint is runtime-specific and is not installed from `skills/`.
-On a shared-agent host, register `codex:verify` as runtime-only and point the
-Codex `verify` skill link at `platforms/codex/verify`. Without a shared manager:
+### Shared installation on each server (Linux)
+
+Clone this repository to any location, then run from its root:
 
 ```bash
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/skills"
-ln -sfn "$PWD/platforms/codex/verify" "${CODEX_HOME:-$HOME/.codex}/skills/verify"
+bash scripts/install-shared.sh
+```
+
+This links `~/.agents/skills/verify` to this checkout and links Claude and Codex
+to that shared entrypoint. It respects `CLAUDE_CONFIG_DIR` and `CODEX_HOME`.
+Pi reads `~/.agents/skills` directly; no duplicate pi skill link is created.
+No packages are installed and no model or network calls are made by the installer.
+Existing ordinary files/directories are never overwritten: move them to a backup
+location before installing. Existing symlinks are replaced. Keep this checkout
+available for as long as its skills are installed.
+
+When migrating from the old shared-agent setup, remove the `codex:verify` entry
+from `~/.agents/runtime-only.txt` if present. If your server uses `agents-sync.sh`,
+run it and `agents-doctor.sh` after installation, resolving any diagnostics.
+Do not copy another server's runtime-only exceptions blindly.
+
+After a commit has been pushed, update **each server** from its checkout:
+
+```bash
+git pull --ff-only
+bash scripts/install-shared.sh
+```
+
+Push alone does not update other servers. Reload pi with `/reload` and use
+`/skill:verify`; start a new Claude/Codex session for rediscovery. The installed
+links follow subsequent checkout updates. Moving the checkout requires rerunning
+the installer from its new location.
+
+Local, network-free portability regression check:
+
+```bash
+bash tests/shared_install.test.sh
 ```
 
 As a Claude Code plugin instead:
