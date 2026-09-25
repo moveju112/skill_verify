@@ -173,6 +173,19 @@ assert_has "현재 증거 읽기 전용 마운트" "/evidence" "$BWRAP_ARGS"
 assert_has "세션별 홈 마운트" "session-$NEW_UUID /reviewer-home" "$BWRAP_ARGS"
 assert_not_has "호스트 홈 미노출" "--ro-bind /home/ubuntu /home/ubuntu" "$BWRAP_ARGS"
 
+# 호스트 설정에서 모델 선택 키만 리뷰어 홈으로 옮기고 hooks·env 등은 버린다.
+mkdir -p "$WORK/host-config"
+jq -n '{model: "opus[1m]", effortLevel: "low", modelSettings: {"claude-opus-5": {effortLevel: "medium"}, "claude-opus-5-5": {effortLevel: "high"}},
+    hooks: {Stop: []}, env: {SECRET_FLAG: "1"}, permissions: {allow: ["Bash"]}}' >"$WORK/host-config/settings.json"
+OUT="$(CLAUDE_CONFIG_DIR="$WORK/host-config" CROSSCHECK_REMOTE_APPROVED=1 bash "$SCRIPT" new -C "$WORK/repo" "질문" 2>&1)"
+MODEL_UUID="$(echo "$OUT" | sed -n 's/^SESSION: //p' | head -1)"
+REVIEWER_SETTINGS="$(jq -c . "$WORK/state/session-$MODEL_UUID/.claude/settings.json" 2>&1)"
+assert_has "모델 설정 전달" '"model":"opus[1m]","effortLevel":"low"' "$REVIEWER_SETTINGS"
+assert_has "모델별 effort 전달" '"claude-opus-5-5":{"effortLevel":"high"}' "$REVIEWER_SETTINGS"
+assert_not_has "hooks 미전달" "hooks" "$REVIEWER_SETTINGS"
+assert_not_has "env 미전달" "SECRET_FLAG" "$REVIEWER_SETTINGS"
+assert_not_has "권한 미전달" "permissions" "$REVIEWER_SETTINGS"
+
 OUT="$(CROSSCHECK_REMOTE_APPROVED=1 bash "$SCRIPT" resume "$NEW_UUID" "후속" 2>&1)"
 assert_has "명시 세션 resume" "--resume $NEW_UUID" "$(cat "$FAKE_ARGS")"
 assert_not_has "암시적 최신 세션 미사용" "--continue" "$(cat "$FAKE_ARGS")"

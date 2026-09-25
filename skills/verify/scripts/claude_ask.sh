@@ -127,6 +127,18 @@ if [ "$MODE" = "new" ]; then
 fi
 touch "$SESSION_HOME"
 
+# 호스트 Claude의 모델 선택만 리뷰어에 이어 준다 (hooks·권한·env·플러그인은 계속 격리)
+# 새 세션마다 다시 읽어 /model 변경과 새 모델 별칭을 스크립트 수정 없이 따라간다.
+HOST_SETTINGS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+if [ "$MODE" = "new" ] && [ -r "$HOST_SETTINGS" ]; then
+    mkdir -p -m 700 "$SESSION_HOME/.claude"
+    if ! jq '{model, effortLevel, modelSettings} | with_entries(select(.value != null))' \
+        "$HOST_SETTINGS" >"$SESSION_HOME/.claude/settings.json" 2>/dev/null; then
+        # 설정이 깨져 있으면 CLI 기본값으로 진행한다.
+        rm -f "$SESSION_HOME/.claude/settings.json"
+    fi
+fi
+
 # 4. Claude에 Bash를 주지 않고, 로컬에서 검증된 Git 조회 결과만 준비한다.
 BASE_SHA="${CROSSCHECK_BASE_SHA:-HEAD}"
 echo "$BASE_SHA" | grep -qE '^(HEAD|[0-9a-fA-F]{7,40})$' \

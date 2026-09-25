@@ -2,7 +2,7 @@
   "name": "verify",
   "displayName": "Verify — Bidirectional Cross-check & Unit Tests",
   "description": "Code verification bundle — bidirectional Claude↔Codex ping-pong review plus approval-gated multi-angle unit testing. The active host implements and the counterpart independently reviews.",
-  "version": "2.3.6",
+  "version": "2.4.0",
   "author": {
     "name": "moveju112",
     "email": "moveju112@users.noreply.github.com"

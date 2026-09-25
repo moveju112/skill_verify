@@ -226,8 +226,8 @@ CROSSCHECK_REMOTE_APPROVED=1 claude_ask.sh resume <session-uuid> -C <repo> "foll
 | `CROSSCHECK_TIMEOUT` | `900` | per-call ceiling, seconds |
 | `CROSSCHECK_LOG_DAYS` | `14` | evidence, raw-log, and session retention |
 | `CROSSCHECK_STATE_DIR` | `~/.cache/claude-crosscheck` | owner-only state root, outside the reviewed repo |
-| `CLAUDE_MODEL` | Claude default | model override |
-| `CLAUDE_EFFORT` | Claude default | effort override |
+| `CLAUDE_MODEL` | host `~/.claude/settings.json` `model` | model override |
+| `CLAUDE_EFFORT` | host settings `modelSettings`/`effortLevel` | effort override (a Claude Code shell exports its own session value) |
 
 Status strings on stdout: `CLAUDE_OK`, `CLAUDE_NOT_INSTALLED`,
 `CLAUDE_PERMISSION_REQUIRED`, `CLAUDE_AUTH_ERROR`, `CLAUDE_QUOTA_ERROR`,
