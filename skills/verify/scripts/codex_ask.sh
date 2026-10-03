@@ -84,7 +84,10 @@ OUT="$STATE_DIR/$TS.last.md"
 # 3. 응답 형식 지시를 프롬프트 뒤에 강제 부착 (장문 응답 차단 + 지적 번호제)
 FORMAT='--- 응답 형식 (반드시 준수) ---
 첫 줄: "VERDICT: AGREE" / "VERDICT: DISAGREE" / "VERDICT: NEED_INFO" 중 하나.
-DISAGREE 지적은 번호·심각도 필수: "#1 [blocking] 내용 (파일:라인)" 형식.
+DISAGREE 지적은 번호·심각도 필수: "#1 [blocking] 내용 (근거)" 형식, 심각도는 blocking 또는 minor 중 선택한다.
+코드 근거는 파일:라인, 개념·설계 의견 근거는 제공된 요구·가정이다. 파일 근거를 지어내지 않는다.
+개선안·설계 의견이면 "RECOMMENDATION: adopt|revise|keep-current|avoid|need-info"와 결정 이유를 추가한다.
+별로인 안은 근거와 함께 비추천·현상 유지라고 솔직히 말한다. 억지 칭찬·비판·합의를 만들지 않는다.
 [blocking]=기능 오류·회귀·요구 미충족, [minor]=개선 여지·스타일.
 이후 근거 bullet 최대 7개. 각 bullet 한 줄, 가능하면 파일경로:라인 인용.
 10줄 넘는 코드 블록 금지. 전체 3000자 이내. 한국어.

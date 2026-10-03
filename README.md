@@ -106,25 +106,35 @@ Say the trigger in either language, or call the slash command:
 
 ## crosscheck
 
-Claude and Codex analyze **independently and blind**, then exchange and merge
-findings. The agent running the user's session owns the code; the counterpart
-is an independent analyst and verifier, never an author.
+Claude and Codex crosscheck ideas, plans, and changes. The host automatically
+selects the useful strategy; both may propose and review, while only the host
+edits. The shared procedure is `skills/verify/SKILL.md`; the Claude `crosscheck`
+entrypoint delegates to it instead of maintaining another workflow.
 
 ### Modes
 
-Picked from the request; ambiguous requests default to `full`.
+Stopping stage is inferred from intent, independently of strategy. Opinions
+stop at `analyze`; implementation runs only when actually requested and authorized.
 
 | Mode | Phases | Example trigger |
 |---|---|---|
 | `analyze` | A | "merge both opinions" / "둘이 의견 취합해줘" |
 | `plan` | A + B | "ping-pong it and just give me the plan" / "핑퐁해서 계획만 줘" |
-| `full` | A + B + C + D | "cross-check it and do the work" / "교차검증하고 작업해" (default) |
+| `full` | A + B + C + D | "cross-check it and do the work" / "교차검증하고 작업해" |
 | `verify` | D | "have codex check whether this is done" / "다 됐는지 codex 체크" |
 
-- **A — parallel blind analysis.** The reviewer call starts in the background
-  from a pre-fixed prompt while the host analyzes independently. The exact task
-  result is collected before comparison; dependent later phases remain sequential.
-- **B — merge into a plan.** Disagreements are numbered and resolved.
+- **Strategy is automatic.** Completion-only work skips A/B. Material design
+  tradeoffs or substantial improvements use `mutual`: independent proposals and
+  one reciprocal review, normally two reviewer calls. Concrete drafts use
+  `debate`; narrow open exploration uses `independent`, normally one reviewer
+  call. Explicit methods take precedence; permission to call another model is
+  still task-scoped.
+- **A — initial assessment and comparison.** Independent/mutual proposals stay
+  blind until both are recorded; debate starts from the supplied draft. Review
+  each finding against evidence, including useful one-sided discoveries.
+- **B — plan when requested.** Reuse review of an unchanged plan; do not add
+  another call just to obtain agreement. Only consequential unresolved issues,
+  new evidence, or accepted fixes justify another exchange, within round caps.
 - **C — implementation.** Claude only.
 - **D — completion check.** A fresh Codex session judges whether the work meets
   the requirement, with the diff scope pinned to a baseline SHA. It is fired in
@@ -132,6 +142,11 @@ Picked from the request; ambiguous requests default to `full`.
   collected.
 
 Phases compose freely. Stop the run mid-way and you keep that phase's output.
+
+Advice adds `RECOMMENDATION: adopt|revise|keep-current|avoid|need-info` alongside
+the wrapper's `VERDICT`. Say plainly when an idea is poor value. Preserve useful
+dissent; do not force praise, criticism, consensus, or edits. Measure actionable
+findings and actual calls/tokens/time rather than treating agreement as quality.
 
 ### Why the wrapper exists — token-leak safety
 

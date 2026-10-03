@@ -153,7 +153,10 @@ fi
 
 FORMAT='--- 응답 형식 (반드시 준수) ---
 첫 줄: "VERDICT: AGREE" / "VERDICT: DISAGREE" / "VERDICT: NEED_INFO" 중 하나.
-DISAGREE 지적은 "#1 [blocking] 내용 (파일:라인)" 형식으로 1부터 연속 번호를 붙인다.
+DISAGREE 지적은 "#1 [blocking] 내용 (근거)" 형식으로 1부터 연속 번호를 붙이고, 심각도는 blocking 또는 minor 중 선택한다.
+코드 근거는 파일:라인, 개념·설계 의견 근거는 제공된 요구·가정이다. 파일 근거를 지어내지 않는다.
+개선안·설계 의견이면 "RECOMMENDATION: adopt|revise|keep-current|avoid|need-info"와 결정 이유를 추가한다.
+별로인 안은 근거와 함께 비추천·현상 유지라고 솔직히 말한다. 억지 칭찬·비판·합의를 만들지 않는다.
 이후 근거 bullet 최대 7개, 전체 3000자 이내. 응답 언어는 요청 언어를 따른다.
 코드를 수정하거나 다른 에이전트·스킬을 호출하지 않는다.'
 FORMAT="$FORMAT
