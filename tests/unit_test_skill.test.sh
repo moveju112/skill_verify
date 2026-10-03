@@ -72,42 +72,5 @@ require(validator.is_file(), "보고서 검증 스크립트가 없습니다")
 print("PASS: shared unit-test skill contract")
 PY
 
-# 보고서 집계 검증기의 성공·실패 계약을 실제 파일로 확인한다.
-TEST_DIR=$(mktemp -d)
-trap 'rm -rf "$TEST_DIR"' EXIT
-
-cat >"$TEST_DIR/valid.md" <<'EOF'
-# test
-<!-- UNIT_COUNTS PASS=1 FAIL=0 SKIP=1 -->
-| type | # | angle | input | expected | actual | verdict |
-|---|---:|---|---|---|---|---|
-| UNIT | 1 | happy path | a | b | b | PASS |
-| UNIT | 2 | boundary | c | d | unavailable | SKIP |
-EOF
-python3 "$VALIDATOR" "$TEST_DIR/valid.md"
-
-cat >"$TEST_DIR/mismatch.md" <<'EOF'
-# test
-<!-- UNIT_COUNTS PASS=2 FAIL=0 SKIP=0 -->
-| type | # | angle | input | expected | actual | verdict |
-|---|---:|---|---|---|---|---|
-| UNIT | 1 | happy path | a | b | b | PASS |
-EOF
-if python3 "$VALIDATOR" "$TEST_DIR/mismatch.md" >/dev/null 2>&1; then
-    echo "FAIL: 집계 불일치 보고서를 허용했습니다" >&2
-    exit 1
-fi
-
-cat >"$TEST_DIR/external.md" <<'EOF'
-# test
-<!-- UNIT_COUNTS PASS=0 FAIL=0 SKIP=0 -->
-| type | # | angle | input | expected | actual | verdict |
-|---|---:|---|---|---|---|---|
-| RUNTIME | 1 | live | service | active | active | PASS |
-EOF
-if python3 "$VALIDATOR" "$TEST_DIR/external.md" >/dev/null 2>&1; then
-    echo "FAIL: 외부 검증이 UNITTEST 보고서에 포함됐습니다" >&2
-    exit 1
-fi
-
-echo "PASS: unit-test report validator contract"
+# 기존 계약과 미실행 결과의 오판 방지를 임시 파일 없이 확인한다.
+python3 -B -m unittest discover -s "$ROOT/tests" -p test_unit_report.py -v

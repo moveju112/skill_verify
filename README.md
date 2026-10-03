@@ -15,7 +15,7 @@ It also includes a host-neutral multi-angle unit-test pass shared by Claude and 
 |---|---|
 | `verify:crosscheck` in Claude | Claude designs and writes the code; Codex independently analyzes and verifies completion. |
 | `verify` in Claude, Codex, or pi | Ordinary requests stay local. Explicit crosschecks select the other model family as the read-only reviewer. |
-| `unit-test` in Claude or Codex | Approval-gated unit testing right after a code change, across 7 angles. Writes a report to `<project>/test/`. |
+| `unit-test` in Claude or Codex | Explicitly requested local unit tests across 7 angles. Keeps useful regression tests and validates report counts/evidence in `<project>/test/`. |
 
 Both skills work in **English and Korean**. Triggers are registered in both
 languages, and the output — chat replies and the test report — follows whichever

@@ -43,14 +43,25 @@ Pick every applicable angle per unit (skip N/A ones, say so in the report):
 | before/after equivalence | refactor: old logic vs new logic on same inputs |
 | side effects | state mutation, cache pollution across calls |
 
-- For refactors, equivalence is the top priority: replicate the OLD logic in the
-  test as an oracle and diff outputs over a generated input grid.
+- For refactors, equivalence is the top priority: use captured pre-change results or
+  the OLD logic as an oracle on the same inputs. Do not derive expected values by
+  calling the new implementation. Pair equivalence with an independent contract
+  assertion so an existing defect does not become the desired behavior.
 - Boundary values come from the code (constants, `E_`-style config), not guesses.
+- Every retained case must name the defect it catches and assert an observable
+  result, exception, or state effect. Prefer different failure mechanisms over
+  many inputs that repeat the same assertion.
+- For a newly fixed defect, observe the regression case failing on an isolated
+  pre-change implementation/known-bad fixture and passing after the fix when feasible.
+  Do not alter the user's working tree for this check. If unavailable, state that
+  defect-detection strength was not demonstrated; do not invent a red/green run.
 
 ## 3. Run efficiently
 
 - Prefer the project's existing test framework (`phpunit`, `jest`, `pytest`, `go test`…).
-- None available → standalone assert scripts (`php -r`/file with `assert()`, exit code ≠ 0 on fail).
+- None available → a standalone script with explicit failure exceptions/exit code ≠ 0.
+  If using runtime assertions, first prove a deliberately false assertion fails;
+  disabled assertions cannot supply PASS evidence.
 - Script location — resolve in THIS order, stop at first hit:
   1. Test path stated in project rule docs (`CLAUDE.md`, `CLAUDE.local.md`, `AGENTS.md` …) — e.g. hnote → `tools/test/`.
   2. Existing test dir auto-detect: `tests/` → `test/` → `tools/test/` → `spec/` → `__tests__/`,
@@ -72,6 +83,8 @@ Pick every applicable angle per unit (skip N/A ones, say so in the report):
   after every edit; include it once in the final gate.
 - Capture per-case PASS/FAIL and actual values. Never fake a result. A local unit case that
   could not run is `SKIP` with the reason.
+- Distinguish product failures from import/bootstrap/assertion-tooling failures before
+  retrying. An unexecuted assertion is SKIP, even if the runner exited successfully.
 
 ## 4. Report — `<project>/test/`
 
@@ -90,8 +103,12 @@ Pick every applicable angle per unit (skip N/A ones, say so in the report):
 - `STATIC`, `BUILD`, and `BASELINE_FAIL` results are supporting checks; report them
   separately and never add them to `UNIT_COUNTS`.
 - `INTEGRATION`, `RUNTIME`, and `PERFORMANCE` results do not belong in a unit-test report.
+- Use explicit representations for empty values (`[]`, `null`, `""`); leave no case
+  field blank. SKIP's actual field states why it did not run. PASS/FAIL actual fields
+  must contain an observed value, error, or state, never a pending/not-run placeholder.
 - Before finishing, run `python3 <skill>/scripts/validate_report.py <report>` and fix any
-  count mismatch or forbidden external-check row.
+  count mismatch, missing case evidence, or forbidden external-check row. Validator
+  success proves report consistency only; execution evidence comes from the run.
 - Append only when the objective and changed unit are the same and the resulting file stays
   at or below 300 lines. Append at the true EOF, never at a repeated text anchor.
 - For a materially different subtask or a report over 300 lines, use a more specific new
@@ -100,6 +117,10 @@ Pick every applicable angle per unit (skip N/A ones, say so in the report):
 
 ## 5. Cleanup
 
-- Delete task-only test scripts after the run if project rules demand it (hnote does);
-  keep them only if the user asks to keep, and note the kept path in the report.
+- Keep meaningful regression tests in the existing test suite when the approved change
+  introduces or fixes behavior; record their path and the defect each one prevents.
+- Delete task-only test scripts, probes, and fixtures after use when no durable coverage
+  remains. Inspect exact task-owned paths first; preserve user files and permanent tests.
+- If project rules explicitly require temporary tests only (e.g. hnote), follow that
+  scope and record why no regression test remains. A request to keep tests takes priority.
 - Report failures honestly in chat: FAIL count first, then the report path.

@@ -14,14 +14,16 @@ COUNT_PATTERN = re.compile(
 )
 FORBIDDEN_TYPES = {"INTEGRATION", "RUNTIME", "PERFORMANCE"}
 VERDICTS = {"PASS", "FAIL", "SKIP"}
+UNEXECUTED_VALUES = {"not run", "not executed", "pending", "unavailable", "미실행", "미확인"}
 
 
+# 오류 메시지 출력 (검증 실패 -> 비정상 종료).
 def fail(message: str) -> None:
     raise SystemExit(f"FAIL: {message}")
 
 
-def validate(path: Path) -> None:
-    text = path.read_text(encoding="utf-8")
+# 보고서 내용 검사 (집계 -> 케이스 근거 -> 일치 확인).
+def validate_text(text: str) -> None:
     declared = Counter({"PASS": 0, "FAIL": 0, "SKIP": 0})
     markers = COUNT_PATTERN.findall(text)
     if not markers:
@@ -44,9 +46,13 @@ def validate(path: Path) -> None:
             continue
         if len(cells) < 7:
             fail(f"{line_number}행 UNIT 케이스 열이 부족합니다")
+        if any(not cell for cell in cells[1:6]):
+            fail(f"{line_number}행 UNIT 케이스 근거가 비어 있습니다")
         verdict = cells[-1].upper()
         if verdict not in VERDICTS:
             fail(f"{line_number}행 판정이 PASS/FAIL/SKIP이 아닙니다: {verdict}")
+        if verdict != "SKIP" and cells[5].casefold() in UNEXECUTED_VALUES:
+            fail(f"{line_number}행 미실행 케이스를 {verdict}로 판정했습니다")
         actual[verdict] += 1
 
     if declared != actual:
@@ -58,6 +64,12 @@ def validate(path: Path) -> None:
     )
 
 
+# 파일 읽기 (보고서 경로 -> 내용 검증).
+def validate(path: Path) -> None:
+    validate_text(path.read_text(encoding="utf-8"))
+
+
+# 인자 확인 (보고서 파일 -> 검증 실행).
 def main() -> None:
     if len(sys.argv) != 2:
         fail("사용법: validate_report.py <UNITTEST_report.md>")
