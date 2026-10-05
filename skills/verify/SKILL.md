@@ -1,18 +1,17 @@
 ---
 name: verify
-description: Evidence-based local verification and explicitly requested Claude↔Codex crosschecks of improvement ideas, plans, and changes. Automatically selects independent proposals, draft critique, or mutual review, with candid recommendations and minimal exchanges. Shared by Claude Code, Codex, and pi. Generic verification stays local; discussing this skill is not permission to call another model. Direct multi-angle unit-test requests use the unit-test skill.
+description: Evidence-based local verification and explicitly requested Claude↔Codex crosschecks of improvement ideas, plans, and changes. Automatically selects independent proposals, draft critique, or mutual review, with candid recommendations and minimal exchanges. Shared by Claude Code and Codex. Generic verification stays local; discussing this skill is not permission to call another model. Direct multi-angle unit-test requests use the unit-test skill.
 ---
 
 # Verify
 
-One shared entrypoint for Claude Code, Codex, and pi. The current agent remains the host and owns implementation; the counterpart may propose alternatives and review but never edits.
+One shared entrypoint for Claude Code and Codex. The current agent remains the host and owns implementation; the counterpart may propose alternatives and review but never edits.
 
 ## Route and permission
 
 - Ordinary verification: inspect and test locally; never call an external LLM.
 - Crosscheck: require explicit task-scoped permission to involve the selected external reviewer. Loading this skill, installing it, or asking for generic verification is not permission.
 - Claude host → Codex reviewer. Codex host → Claude reviewer; never invoke Codex recursively from Codex.
-- In pi, inspect `PI_PROVIDER` and `PI_MODEL` using the shell tool. Claude/Anthropic model → Codex reviewer; GPT/OpenAI model → Claude reviewer. For another model family, unknown metadata, or an ambiguous router, ask which reviewer to use. Pi is a runtime, not a model family.
 - Respect an explicitly requested reviewer, but do not describe same-family review as independent cross-model verification; clarify that conflict before calling.
 - Infer the stopping stage separately from the strategy below: `analyze` for opinions or exploration, `plan` for a plan, `verify` for completed work, and `full` only when implementation is genuinely requested and authorized. An ambiguous advice request never defaults to `full`.
 - Review-only requests stay read-only. Ask separately before DB, network, remote, destructive, deployment, Git mutation, or service-changing operations beyond the authorized reviewer call.
@@ -55,7 +54,7 @@ Resolve `scripts/` relative to this skill directory, then use absolute paths fro
 - Run the selected wrapper's `check` before the first authorized call. It checks local installation/authentication without a model request.
 - The Codex wrapper does not enforce the permission gate itself: the host MUST obtain task-scoped authorization before calling it.
 - Pass paths and line ranges, never entire files or diffs. Summaries sent to the reviewer must be at most 15 lines.
-- Use a caller timeout of at least **930 seconds** (930000 only for tools whose timeout unit is milliseconds). The wrapper's default internal limit is 900 seconds. In pi's bash tool use `timeout: 930`.
+- Use a caller timeout of at least **930 seconds** (930000 only for tools whose timeout unit is milliseconds). The wrapper's default internal limit is 900 seconds.
 - Never read raw crosscheck logs wholesale. They contain repository content. Read only narrowly filtered diagnostic excerpts.
 - Retain the exact `SESSION: <uuid>` returned. Never resume `UNKNOWN`, an implicit latest session, another reviewer's session, or a session from another repository. Start fresh after three rounds or a topic change.
 - `VERDICT: AGREE|DISAGREE|NEED_INFO` is the review format. Findings are `#N [blocking|minor]`. Refer to finding numbers in follow-ups instead of repeating their text.

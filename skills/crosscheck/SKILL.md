@@ -7,7 +7,7 @@ description: Claude-hosted Claude↔Codex crosschecks of improvement ideas, plan
 
 This compatibility entrypoint delegates to the shared procedure in [verify](../verify/SKILL.md). Read that file and follow its routing, permission, evidence, wrapper, strategy, stopping, and reporting contracts. Do not maintain a second workflow here.
 
-- Claude is the host; Codex is the read-only counterpart. The host owns implementation. In Codex or pi, use the shared entrypoint's model-family routing instead.
+- Claude is the host; Codex is the read-only counterpart. The host owns implementation. In Codex, use the shared entrypoint's model-family routing instead.
 - Choose the strategy automatically, within task-scoped reviewer permission; do not ask which method to use. Respect an explicitly selected method.
 - Infer the stopping stage from intent: opinions → `analyze`, plans → `plan`, completed work → `verify`, authorized implementation → `full`. Advice does not default to implementation.
 - For advice and planning, read the shared [strategy reference](../verify/references/crosscheck-strategies.md). Broad improvement exploration normally uses independent proposals plus mutual review; a concrete draft uses critique; a narrow exploration uses independent proposals.

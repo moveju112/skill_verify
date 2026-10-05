@@ -10,13 +10,12 @@ mkdir -p "$HOME" "$workDirectory/checkout one"
 cp -a "$repositoryRoot/skills" "$repositoryRoot/platforms" "$repositoryRoot/scripts" "$workDirectory/checkout one/"
 checkout="$workDirectory/checkout one"
 
-# 1. 같은 설치를 반복해도 동일 원본을 가리키며 pi 중복 링크가 생기지 않는다.
+# 1. 같은 설치를 반복해도 동일 원본을 가리킨다.
 bash "$checkout/scripts/install-shared.sh" >/dev/null
 bash "$checkout/scripts/install-shared.sh" >/dev/null
 for runtime in .agents .claude .codex; do
     [[ "$(readlink -f "$HOME/$runtime/skills/verify")" == "$checkout/skills/verify" ]]
 done
-[[ ! -e "$HOME/.pi/agent/skills/verify" ]]
 [[ "$(readlink -f "$checkout/platforms/codex/verify/SKILL.md")" == "$checkout/skills/verify/SKILL.md" ]]
 for name in claude_ask codex_ask review_git; do
     [[ -f "$checkout/skills/verify/scripts/$name.sh" && ! -L "$checkout/skills/verify/scripts/$name.sh" ]]

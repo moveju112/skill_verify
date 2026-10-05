@@ -7,14 +7,14 @@
 npx skills add moveju112/skill_verify
 ```
 
-A shared Claude Code, Codex, and pi verification bundle. The active host owns
+A shared Claude Code and Codex verification bundle. The active host owns
 the implementation while the other agent independently analyzes and verifies it.
 It also includes a host-neutral multi-angle unit-test pass shared by Claude and Codex.
 
 | Skill | Role |
 |---|---|
 | `verify:crosscheck` in Claude | Claude designs and writes the code; Codex independently analyzes and verifies completion. |
-| `verify` in Claude, Codex, or pi | Ordinary requests stay local. Explicit crosschecks select the other model family as the read-only reviewer. |
+| `verify` in Claude or Codex | Ordinary requests stay local. Explicit crosschecks select the other model family as the read-only reviewer. |
 | `unit-test` in Claude or Codex | Explicitly requested local unit tests across 7 angles. Keeps useful regression tests and validates report counts/evidence in `<project>/test/`. |
 
 Both skills work in **English and Korean**. Triggers are registered in both
@@ -41,7 +41,6 @@ bash scripts/install-shared.sh
 
 This links `~/.agents/skills/verify` to this checkout and links Claude and Codex
 to that shared entrypoint. It respects `CLAUDE_CONFIG_DIR` and `CODEX_HOME`.
-Pi reads `~/.agents/skills` directly; no duplicate pi skill link is created.
 No packages are installed and no model or network calls are made by the installer.
 Existing ordinary files/directories are never overwritten: move them to a backup
 location before installing. Existing symlinks are replaced. Keep this checkout
@@ -59,8 +58,8 @@ git pull --ff-only
 bash scripts/install-shared.sh
 ```
 
-Push alone does not update other servers. Reload pi with `/reload` and use
-`/skill:verify`; start a new Claude/Codex session for rediscovery. The installed
+Push alone does not update other servers. Start a new Claude/Codex session for
+rediscovery. The installed
 links follow subsequent checkout updates. Moving the checkout requires rerunning
 the installer from its new location.
 
